@@ -1,0 +1,10 @@
+[
+  {
+    "email": "grace@finance.company.com",
+    "secret": "123"
+  },
+  {
+    "email": "harry@finance.company.com",
+    "secret": "finS3cur3H2"
+  }
+]

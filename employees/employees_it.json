@@ -1,0 +1,7 @@
+[
+  { "email": "Rubies@it.company.com", "secret": "alpha" },
+  { "email": "bobies@it.company.com", "secret": "bravo" },
+  { "email": "caroles@it.company.com", "secret": "charlie" },
+  { "email": "daves@it.company.com", "secret": "delta" },
+  { "email": "Emma@it.company.com", "secret": "beta#"}
+]

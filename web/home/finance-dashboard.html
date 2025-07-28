@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <title>Finance Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/snarkjs@0.7.1/build/snarkjs.min.js"></script>
+  <script src="/static/bundle.umd.js"></script>
+  <script src="/static/create_proof.js"></script>
+</head>
+<body class="bg-purple-100 flex justify-center items-center min-h-screen">
+  <div class="text-center w-full">
+    <h1 class="text-3xl font-bold text-purple-800">Chào mừng Finance</h1>
+    <p class="mt-4 mb-8">Bạn đang truy cập giao diện tài chính.</p>
+
+    <div class="max-w-md mx-auto">
+      <button
+        onclick="document.getElementById('changePassForm').classList.toggle('hidden')"
+        class="mb-4 bg-purple-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-purple-700 transition"
+      >
+        Đổi mật khẩu
+      </button>
+      <form id="changePassForm" action="/change_password" method="POST" class="space-y-4 bg-white rounded-xl shadow-md p-8 hidden">
+        <div>
+          <input
+            type="password"
+            name="old_secret"
+            id="oldSecret"
+            placeholder="Mật khẩu hiện tại"
+            required
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
+          />
+        </div>
+        <div>
+          <input
+            type="password"
+            name="new_secret"
+            id="newSecret"
+            placeholder="Mật khẩu mới"
+            required
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
+          />
+        </div>
+        <div>
+          <input
+            type="password"
+            name="confirm_secret"
+            id="confirmSecret"
+            placeholder="Nhập lại mật khẩu mới"
+            required
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
+          />
+        </div>
+        <div class="flex items-center">
+          <input type="checkbox" id="showPassword" class="mr-2" />
+          <label for="showPassword" class="text-sm text-gray-700 select-none">Hiện mật khẩu</label>
+        </div>
+        <button
+          type="submit"
+          class="w-full bg-purple-600 text-white py-2 rounded-lg font-semibold hover:bg-purple-700 transition"
+        >
+          Đổi mật khẩu
+        </button>
+      </form>
+    </div>
+  </div>
+  <script>
+   document.addEventListener('DOMContentLoaded', function () {
+    const changePassForm = document.getElementById('changePassForm');
+    if (changePassForm) {
+      changePassForm.addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        // Lấy email và role từ localStorage
+        const email = localStorage.getItem('zk_email');
+        if (!email) {
+          alert('Không tìm thấy email đăng nhập!');
+          return false;
+        }
+        const role = extractRoleFromEmail(email); // Hàm này bạn đã có ở client
+
+        // Lấy giá trị các trường
+        const oldSecret = this.querySelector('input[name="old_secret"]').value;
+        const newSecret = this.querySelector('input[name="new_secret"]').value;
+        const confirmSecret = this.querySelector('input[name="confirm_secret"]').value;
+
+        // Kiểm tra mật khẩu mới và xác nhận
+        if (newSecret !== confirmSecret) {
+          alert('Mật khẩu mới và xác nhận không khớp!');
+          return false;
+        }
+
+        // Kiểm tra mật khẩu mới có khác mật khẩu cũ không
+         if (newSecret === oldSecret) {
+          alert('Mật khẩu mới không được trùng với mật khẩu hiện tại!');
+          return false;
+        }
+
+        // 1. Sinh proof xác thực mật khẩu cũ
+        let proof, publicSignals, index;
+        try {
+          ({ proof, publicSignals , index } = await generateProof(email, oldSecret, role));
+          alert('Sinh proof thành công!');
+        } catch (err) {
+          alert('Lỗi khi sinh proof xác thực mật khẩu cũ: ' + err);
+          return false;
+        }
+
+        //2. Gửi proof lên server để xác thực mật khẩu cũ
+        try {
+          const res = await fetch('/verify_login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ proof, publicSignals })
+          });
+          const result = await res.json();
+          if (!result.success) {
+            alert('Mật khẩu hiện tại không đúng!');
+            return false;
+          }else{
+            alert('Xác thực mật khẩu cũ thành công! có index = ' + String(index));
+            // Gửi request cập nhật secret lên server
+            try {
+              const updateRes = await fetch('/update_employee_secret', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  email: email,
+                  role: role,
+                  new_secret: newSecret
+                })
+              });
+              const updateResult = await updateRes.json();
+              if (updateResult.success) {
+                alert('Cập nhật mật khẩu mới trong employees thành công!');
+              } else {
+                alert('Cập nhật employees thất bại: ' + updateResult.message);
+              }
+            } catch (err) {
+              alert('Lỗi khi cập nhật employees: ' + err);
+            }
+            // Lưu index để gửi lên server
+            localStorage.setItem('zk_index', index);
+          }
+        } catch (err) {
+          alert('Lỗi xác thực mật khẩu cũ: ' + err);
+          return false;
+        }
+
+       // 3. Tính hash Poseidon của email + mật khẩu mới (giả sử bạn có hàm poseidonHashLeafJS)
+        let newLeaf;
+        try {
+          newLeaf = await hashLeaf(email, newSecret); // Hàm này bạn cần định nghĩa ở client
+        } catch (err) {
+          alert('Lỗi khi hash mật khẩu mới: ' + err);
+          return false;
+        }
+
+        // 4. Gửi hash mới, index, role lên server để đổi leaf
+        try {
+          const res = await fetch('/change_password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              new_leaf: newLeaf,
+              index: index,
+              role: role
+            })
+          });
+          const result = await res.json();
+          if (result.success) {
+            alert('Đổi mật khẩu thành công!');
+            window.location.href = "/";
+          } else {
+            alert(result.message || 'Đổi mật khẩu thất bại!');
+          }
+        } catch (err) {
+          alert('Lỗi server: ' + err);
+        }
+      });
+    }
+
+    // Hiện/ẩn mật khẩu
+    const showPassword = document.getElementById('showPassword');
+    showPassword.addEventListener('change', function () {
+      const fields = [
+        document.getElementById('oldSecret'),
+        document.getElementById('newSecret'),
+        document.getElementById('confirmSecret')
+      ];
+      fields.forEach(field => {
+        if (field) field.type = this.checked ? 'text' : 'password';
+      });
+    });
+  });
+  </script>
+</body>
+</html>

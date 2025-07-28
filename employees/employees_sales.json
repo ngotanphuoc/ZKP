@@ -1,0 +1,8 @@
+[
+  { "email": "alice@sales.company.com", "secret": "s3cr3tA1" },
+  { "email": "bob@sales.company.com", "secret": "s3cr3tB2" },
+  { "email": "carol@sales.company.com", "secret": "s3cr3tC3" },
+  { "email": "dave@sales.company.com", "secret": "s3cr3tD4" },
+  { "email": "emma@sales.company.com", "secret": "s3cr3tE5" },
+  { "email": "frank@sales.company.com", "secret": "s3cr3tF6" }
+]

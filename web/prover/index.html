@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ZK Role Prover</title>
+  
+  <!-- External Libraries -->
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/snarkjs@0.7.1/build/snarkjs.min.js"></script>
+  <script src="/static/bundle.umd.js"></script>
+  <script src="/static/create_proof.js"></script>
+   <script>
+      (async () => {
+        try {
+          const poseidon = await ZKLibs.buildPoseidon();
+          const hash = poseidon(["1", "2"]);
+          console.log("Poseidon hash:", poseidon.F.toString(hash));
+        } catch (err) {
+          console.error("Lỗi khi gọi ffjavascript / poseidon:", err);
+        }
+      })();
+    </script>
+  <style>
+    * {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    
+    .gradient-bg {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    .glass-effect {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    .floating-animation {
+      animation: float 6s ease-in-out infinite;
+    }
+    
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-10px); }
+    }
+    
+    .input-focus {
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .input-focus:focus {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    }
+    
+    .btn-gradient {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      transition: all 0.3s ease;
+    }
+    
+    .btn-gradient:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 15px 35px rgba(102, 126, 234, 0.4);
+    }
+    
+    .btn-gradient:active {
+      transform: translateY(0);
+    }
+    
+    .status-fade-in {
+      animation: fadeInUp 0.5s ease-out;
+    }
+    
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .icon-bounce {
+      animation: bounce 2s infinite;
+    }
+    
+    @keyframes bounce {
+      0%, 20%, 53%, 80%, 100% {
+        transform: translate3d(0,0,0);
+      }
+      40%, 43% {
+        transform: translate3d(0, -20px, 0);
+      }
+      70% {
+        transform: translate3d(0, -10px, 0);
+      }
+      90% {
+        transform: translate3d(0, -4px, 0);
+      }
+    }
+  </style>
+</head>
+<body class="gradient-bg min-h-screen flex items-center justify-center p-4">
+  <!-- Background Pattern -->
+  <div class="absolute inset-0 opacity-10">
+    <div class="absolute top-10 left-10 w-32 h-32 bg-white rounded-full blur-xl"></div>
+    <div class="absolute bottom-10 right-10 w-48 h-48 bg-white rounded-full blur-xl"></div>
+    <div class="absolute top-1/2 left-1/4 w-24 h-24 bg-white rounded-full blur-lg"></div>
+  </div>
+  
+  <!-- Main Container -->
+  <div class="relative z-10 glass-effect rounded-3xl p-8 w-full max-w-md shadow-2xl floating-animation">
+    <!-- Header -->
+    <div class="text-center mb-8">
+      <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl mb-4 icon-bounce">
+        <i class="fas fa-shield-alt text-2xl text-white"></i>
+      </div>
+      <h2 class="text-3xl font-bold text-gray-800 mb-2">ZK Role Prover</h2>
+      <p class="text-gray-600 text-sm">Secure zero-knowledge proof generation</p>
+    </div>
+    
+    <!-- Form -->
+    <form id="zkForm" method="POST" action="/" class="space-y-6">
+      <!-- Email Field -->
+      <div class="space-y-2">
+        <label for="email" class="flex items-center text-sm font-semibold text-gray-700">
+          <i class="fas fa-envelope text-blue-600 mr-2"></i>
+          Email Address
+        </label>
+        <div class="relative">
+          <input 
+            type="text" 
+            id="email" 
+            name="email" 
+            placeholder="alice@it.company.com" 
+            required 
+            class="input-focus w-full px-4 py-3 pl-12 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-gray-700 placeholder-gray-400"
+          />
+          <i class="fas fa-user absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+        </div>
+      </div>
+      
+      <!-- Secret Field -->
+      <div class="space-y-2">
+        <label for="secret" class="flex items-center text-sm font-semibold text-gray-700">
+          <i class="fas fa-key text-purple-600 mr-2"></i>
+          Secret Key
+        </label>
+        <div class="relative">
+          <input 
+            type="password" 
+            id="secret" 
+            name="secret" 
+            placeholder="Enter your secret key" 
+            required 
+            class="input-focus w-full px-4 py-3 pl-12 pr-12 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:outline-none text-gray-700 placeholder-gray-400"
+          />
+          <i class="fas fa-lock absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+          <button 
+            type="button" 
+            id="toggleSecret" 
+            class="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
+          >
+            <i class="fas fa-eye"></i>
+          </button>
+        </div>
+      </div>
+      
+      <!-- Submit Button -->
+      <button 
+        type="submit" 
+        class="btn-gradient w-full py-4 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-blue-300 focus:ring-opacity-50"
+      >
+        <i class="fas fa-cog mr-2"></i>
+        Generate Proof Input
+      </button>
+    </form>
+    
+    <!-- Status Message -->
+    <div id="status" class="mt-6 text-center font-medium text-sm"></div>
+    
+    <!-- Footer -->
+    <div class="mt-8 pt-6 border-t border-gray-200">
+      <p class="text-center text-xs text-gray-500">
+        <i class="fas fa-info-circle mr-1"></i>
+        https://github.com/trannhatbuilder
+      </p>
+    </div>
+  </div>
+
+  <script>
+    // Toggle password visibility (giữ nguyên)
+    document.getElementById('toggleSecret').addEventListener('click', function() {
+      const secretInput = document.getElementById('secret');
+      const icon = this.querySelector('i');
+      if (secretInput.type === 'password') {
+        secretInput.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+      } else {
+        secretInput.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+      }
+    });
+
+    // function extractRoleFromEmail(email) {
+    //   const match = email.match(/@(\w+)\.company\.com$/);
+    //   return match ? match[1] : "";
+    // }
+
+    // Xử lý submit form: sinh proof và gửi lên server
+    document.getElementById('zkForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const button = this.querySelector('button[type="submit"]');
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Generating...';
+    button.disabled = true;
+
+    const email = document.getElementById('email').value;
+    const secret = document.getElementById('secret').value;
+    const role = extractRoleFromEmail(email);
+    const statusDiv = document.getElementById("status");
+    statusDiv.innerHTML = "";
+
+    try {
+      // Gọi hàm sinh proof từ create_proof.js (phải truyền role)
+      const { proof, publicSignals } = await generateProof(email, secret, role);
+      console.log("sinh proof thành công:", proof, publicSignals);
+      // Gửi proof và publicSignals lên server để verify
+      const res = await fetch('/verify_login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ proof, publicSignals })
+      });
+      const result = await res.json();
+      if (result.success) {
+        //save email on browser to change password later
+        localStorage.setItem('zk_email', email);
+        statusDiv.innerHTML = `
+          <div class="status-fade-in bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-xl">
+            <i class="fas fa-check-circle mr-2"></i>
+            Đăng nhập thành công!
+          </div>
+        `;
+         setTimeout(() => {
+          window.location.href = `../home/${role}-dashboard.html`;
+        }, 1200); // Đợi 1.2 giây cho user thấy thông báo
+      } else {
+        statusDiv.innerHTML = `
+          <div class="status-fade-in bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-xl">
+            <i class="fas fa-exclamation-triangle mr-2"></i>
+            Đăng nhập thất bại!
+          </div>
+        `;
+      }
+    } catch (err) {
+      statusDiv.innerHTML = `
+        <div class="status-fade-in bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-xl">
+          <i class="fas fa-exclamation-triangle mr-2"></i>
+          Lỗi khi sinh proof: ${err}
+        </div>
+      `;
+      // statusDiv.innerHTML = `
+      //   <div class="status-fade-in bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-xl">
+      //       <i class="fas fa-exclamation-triangle mr-2"></i>
+      //       Đăng nhập thất bại!
+      //   </div>
+      // `;
+    } finally {
+      button.innerHTML = originalText;
+      button.disabled = false;
+    }
+  });
+
+    // Input validation styling (giữ nguyên)
+    const inputs = document.querySelectorAll('input');
+    inputs.forEach(input => {
+      input.addEventListener('invalid', function() {
+        this.classList.add('border-red-500');
+        this.classList.remove('border-gray-200');
+      });
+      input.addEventListener('input', function() {
+        if (this.validity.valid) {
+          this.classList.remove('border-red-500');
+          this.classList.add('border-gray-200');
+        }
+      });
+    });
+  </script>
+</body>
+</html>
