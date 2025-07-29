@@ -20,78 +20,41 @@ sys.stdout.reconfigure(encoding='utf-8')
 
 app = Flask(__name__)
 
+
+def poseidon_hash(inputs):
+    """Gọi Node.js script để hash Poseidon 2 input."""
+    if len(inputs) != 2:
+        raise ValueError("Poseidon hash requires exactly 2 inputs.")
+    js_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../merkle/poseidon_hash.js"))
+    result = subprocess.run(
+        ["node", js_path, str(inputs[0]), str(inputs[1])],
+        capture_output=True,
+        text=True,
+        check=True
+    )
+    return int(result.stdout.strip())
+
 # Load HTML template
 html_path = os.path.join(os.path.dirname(__file__), "index.html")
 with open(html_path, "r", encoding="utf-8") as f:
     html_template = f.read()
 
-# def generate_proof(email, secret):
-#     """Sinh proof cho email + secret. Trả về True nếu thành công, False nếu lỗi."""
-#     script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../merkle/generate_input_json.py"))
-#     script_dir = os.path.dirname(script_path)
-#     try:
-#         result = subprocess.run(
-#             ["python", script_path, "--email", email, "--secret", secret],
-#             cwd=script_dir,
-#             capture_output=True,
-#             text=True,
-#             encoding="utf-8",
-#             errors="ignore",
-#             check=True
-#         )
-#         print("✅ generate_input_json.py success")
-#         print("STDOUT:", result.stdout)
-#     except subprocess.CalledProcessError as e:
-#         print("❌ Error calling generate_input_json.py")
-#         print("Return code:", e.returncode)
-#         print("STDOUT:", e.stdout)
-#         print("STDERR:", e.stderr)
-#         return False
+# function to generate Merkle root
+def build_merkle_root(leaves):
+    # Chuyển leaves thành int nếu cần
+    nodes = [int(x) for x in leaves]
+    while len(nodes) > 1:
+        next_level = []
+        for i in range(0, len(nodes), 2):
+            left = nodes[i]
+            right = nodes[i+1] if i+1 < len(nodes) else left
+            # Gọi hàm poseidon_hash 2 input (giống backend bạn đang dùng)
+            h = poseidon_hash([left, right])
+            next_level.append(h)
+        nodes = next_level
+    return str(nodes[0])
 
-#     # Generate witness
-#     try:
-#         wasm_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../outputs/merkle_proof_js/merkle_proof.wasm"))
-#         input_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../inputs/input.json"))
-#         witness_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../outputs/witness.wtns"))
-#         subprocess.run([
-#             "snarkjs.cmd", "wtns", "calculate",
-#             "--wasm", wasm_path,
-#             "--input", input_path,
-#             "--witness", witness_path
-#         ], check=True, text=True, encoding="utf-8", errors="ignore")
-#         # Generate proof
-#         zkey_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../outputs/merkle_proof_final.zkey"))
-#         proof_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../outputs/proof.json"))
-#         public_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../outputs/public.json"))
-#         subprocess.run([
-#             "snarkjs.cmd", "groth16", "prove",
-#             zkey_path,
-#             witness_path,
-#             proof_path,
-#             public_path
-#         ], check=True, text=True, encoding="utf-8", errors="ignore")
-#         return True
-#     except subprocess.CalledProcessError as e:
-#         print("❌ Error during witness/proof generation")
-#         print("Return code:", e.returncode)
-#         print("STDOUT:", e.stdout)
-#         print("STDERR:", e.stderr)
-#         return False
-
-# def verify_proof():
-#     """Xác thực proof đã sinh. Trả về True nếu hợp lệ, False nếu không."""
-#     try:
-#         proof_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../outputs/proof.json"))
-#         public_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../outputs/public.json"))
-#         vkey_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../outputs/verification_key.json"))
-#         subprocess.check_call([
-#             "snarkjs.cmd", "groth16", "verify",
-#             vkey_path, public_path, proof_path
-#         ])
-#         return True
-#     except subprocess.CalledProcessError:
-#         return False
-
+# Hàm để verify proof từ client
 def verify_proof_from_client(proof, public_signals):
     # Đường dẫn tới zkey và verification key
     vkey_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../outputs/verification_key.json"))
@@ -108,30 +71,18 @@ def verify_proof_from_client(proof, public_signals):
             "snarkjs.cmd", "groth16", "verify",
             vkey_path, "public.json", "proof.json"
         ], capture_output=True, text=True, check=True)
+        # Kiểm tra isValid trong public_signals
+        is_valid = str(public_signals[-1])  # isValid thường là phần tử cuối
+        if is_valid != "1":
+            return False, "isValid signal != 1 (proof không hợp lệ)"
         return True, result.stdout
     except subprocess.CalledProcessError as e:
         return False, e.stderr
 
+# Route chính để xử lý đăng nhập
 @app.route("/", methods=["GET", "POST"])
 def zk_process():
-    if request.method == "GET":
-        return render_template_string(html_template)
-
-    email = request.form.get("email")
-    secret = request.form.get("secret")
-    role = extract_role_from_email(email)
-
-    if not email or '@' not in email:
-        return render_template_string(html_template + "<script>alert('Sai format email!');</script>")
-
-    # if not generate_proof(email, secret):
-    #     return render_template_string(html_template + "<script>alert('❌ Tài khoản hoặc mật khẩu không đúng!');</script>")
-
-    if verify_proof():
-        print("role là : " + str(role))
-        return redirect(f"/home/{role}-dashboard.html")
-    else:
-        return render_template_string(html_template + "<script>alert('❌ Tài khoản hoặc mật khẩu không đúng!');</script>")
+    return render_template_string(html_template)
 
 #xử lí sk khi người dùng gửi proof và public signals lên 
 @app.route('/verify_login', methods=['POST'])
@@ -145,15 +96,80 @@ def verify_login_route():
         return jsonify({"success": True, "message": "Proof hợp lệ!", "log": msg})
     else:
         return jsonify({"success": False, "message": "Proof không hợp lệ!", "log": msg})
-    
-# Chuyển hướng dashboard theo role
-@app.route("/home/<path:filename>")
-def serve_home(filename):
-    # Lấy đường dẫn thư mục home cùng cấp với prover
-    home_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../home"))
-    return send_from_directory(home_dir, filename)
 
-import subprocess
+#=====================================  đăng kí tai khoản mới =========================================
+#check email exist   
+@app.route('/check_email', methods=['POST'])
+def check_email():
+    data = request.get_json()
+    email_hash = str(data['email_hash'])
+    role = data['role']
+    roots_path = os.path.abspath(os.path.join(os.path.dirname(__file__), f"../../roots/{role}.json"))
+    if not os.path.exists(roots_path):
+        return jsonify({"success": False, "message": "Role không tồn tại!"})
+
+    with open(roots_path, 'r', encoding='utf-8') as f:
+        roots = json.load(f)
+    emails = roots.get('emails', [])
+    # Kiểm tra trùng email
+    if email_hash in emails:
+        return jsonify({"success": False, "message": "Email đã tồn tại!"})
+    return jsonify({"success": True, "message": "Email chưa tồn tại, có thể đăng ký."})
+
+# Đăng ký tài khoản mới
+@app.route('/register', methods=['POST'])
+def register():
+    data = request.get_json()
+    email_hash = str(data['email_hash'])
+    leaf_hash = str(data['leaf_hash'])
+    role = data['role']
+    roots_path = os.path.abspath(os.path.join(os.path.dirname(__file__), f"../../roots/{role}.json"))
+    if not os.path.exists(roots_path):
+        return jsonify({"success": False, "message": "Role không tồn tại!"})
+    with open(roots_path, 'r', encoding='utf-8') as f:
+        roots = json.load(f)
+    leaves = roots.get('leaves', [])
+    emails = roots.get('emails', [])
+    try:
+        idx = leaves.index("0")
+    except ValueError:
+        return jsonify({"success": False, "message": "Hết slot đăng ký!"})
+    leaves[idx] = leaf_hash
+    if len(emails) < len(leaves):
+        emails.append(email_hash)
+    else:
+        emails[idx] = email_hash
+    roots['leaves'] = leaves
+    roots['emails'] = emails
+    roots['root'] = build_merkle_root(leaves)
+    with open(roots_path, 'w', encoding='utf-8') as f:
+        json.dump(roots, f, ensure_ascii=False, indent=2)
+    return jsonify({"success": True, "message": "Đăng ký thành công!"})
+
+#thêm email và secret vào file trong folder employees (Bước thử nghiệm)
+@app.route('/add_employee', methods=['POST'])
+def add_employee():
+    data = request.get_json()
+    email = data['email']
+    secret = data['secret']
+    role = data['role']
+    employees_path = os.path.abspath(os.path.join(os.path.dirname(__file__), f"../../employees/employees_{role}.json"))
+    try:
+        if os.path.exists(employees_path):
+            with open(employees_path, 'r', encoding='utf-8') as f:
+                employees = json.load(f)
+        else:
+            employees = []
+        employees.append({"email": email, "secret": secret})
+        with open(employees_path, 'w', encoding='utf-8') as f:
+            json.dump(employees, f, ensure_ascii=False, indent=2)
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)})
+    
+#====================================================================================================
+
+#======================================== Đổi mật khẩu ========================================
 
 @app.route('/change_password', methods=['POST'])
 def change_password():
@@ -174,9 +190,8 @@ def change_password():
             return jsonify({"success": False, "message": "Index không hợp lệ!"}), 400
 
         roots['leaves'][index] = new_leaf
+        roots['root'] = build_merkle_root(roots['leaves'])
 
-        # TODO: build lại Merkle root ở đây nếu bạn có hàm build_merkle_root
-        # roots['root'] = build_merkle_root(roots['leaves'])
 
         with open(roots_path, 'w', encoding='utf-8') as f:
             json.dump(roots, f, ensure_ascii=False, indent=2)
@@ -186,6 +201,23 @@ def change_password():
         import traceback
         print(traceback.format_exc())
         return jsonify({"success": False, "message": f"Lỗi server: {e}"}), 500
+
+#====================================================================================================
+
+#========================================= Các chức năng chuyển hướng và lấy file json =========================================
+
+# Chuyển hướng dashboard theo role
+@app.route("/home/<path:filename>")
+def serve_home(filename):
+    # Lấy đường dẫn thư mục home cùng cấp với prover
+    home_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../home"))
+    return send_from_directory(home_dir, filename)
+
+# Server the register page
+@app.route('/register')
+def serve_register():
+    html_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../Register/register.html"))
+    return send_file(html_path)
 
 #để cập nhật lại mật khẩu lúc chưa hash
 @app.route('/update_employee_secret', methods=['POST'])
@@ -231,6 +263,8 @@ def serve_zkey(filename):
     if not os.path.exists(file_path):
         abort(404)
     return send_file(file_path)
+
+#====================================================================================================
 
 if __name__ == "__main__":
     app.run(debug=True, port=5001)

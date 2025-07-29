@@ -56,18 +56,20 @@ def main():
             employee_file = os.path.join(EMPLOYEE_FOLDER, filename)
             with open(employee_file, "r", encoding="utf-8") as f:
                 employees = json.load(f)
-            # Hash all leaves
+             # Hash all leaves
             hashed_leaves = [poseidon_hash_leaf(emp["email"], emp["secret"]) for emp in employees]
+            email_hashes = [str(poseidon_hash([str_to_bigint(emp["email"]), str_to_bigint("0")])) for emp in employees]
             while len(hashed_leaves) < TOTAL_LEAVES:
                 hashed_leaves.append(0)
             # Build Merkle Tree
             tree, root = build_merkle_tree(hashed_leaves)
-            # Export root and leaves
+            # Export root, leaves, email hashes
             root_file = os.path.join(ROOTS_FOLDER, f"{role}.json")
             with open(root_file, "w", encoding="utf-8") as f:
                 json.dump({
                     "root": str(root),
-                    "leaves": [str(leaf) for leaf in hashed_leaves]
+                    "leaves": [str(leaf) for leaf in hashed_leaves],
+                    "emails": email_hashes
                 }, f, indent=2)
             print(f"✅ Exported root and leaves for role '{role}' to {root_file}")
 

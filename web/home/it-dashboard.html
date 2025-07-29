@@ -2,13 +2,112 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8" />
-  <title>IT Department</title>
+  <title>IT Dashboard</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/snarkjs@0.7.1/build/snarkjs.min.js"></script>
+  <script src="/static/bundle.umd.js"></script>
+  <script src="/static/create_proof.js"></script>
+  <script src="/home/changePass.js"></script>
+  <style>
+    body {
+      font-family: 'Roboto', sans-serif;
+      background: linear-gradient(135deg, #f9fafb 0%, #90caf9 100%);
+    }
+    .it-header {
+      background: linear-gradient(90deg, #1976d2 0%, #90caf9 100%);
+      box-shadow: 0 4px 16px rgba(25, 118, 210, 0.15);
+    }
+    .it-card {
+      backdrop-filter: blur(8px);
+      box-shadow: 0 8px 32px rgba(25, 118, 210, 0.12);
+      border: 2px solid #90caf9;
+    }
+    .it-btn {
+      background: linear-gradient(90deg, #1976d2 0%, #90caf9 100%);
+      color: #fff;
+      font-weight: 600;
+      box-shadow: 0 2px 8px rgba(25, 118, 210, 0.15);
+    }
+    .it-btn:hover {
+      background: linear-gradient(90deg, #90caf9 0%, #1976d2 100%);
+      color: #fff;
+    }
+    .it-icon {
+      color: #1976d2;
+      margin-right: 8px;
+    }
+  </style>
 </head>
-<body class="bg-green-100 flex justify-center items-center min-h-screen">
-  <div class="text-center">
-    <h1 class="text-3xl font-bold text-green-800">Chào mừng IT</h1>
-    <p class="mt-4">Bạn đang truy cập giao diện của bộ phận CNTT.</p>
+<body class="min-h-screen flex items-center justify-center p-4">
+  <div class="w-full max-w-lg">
+    <div class="it-header rounded-t-2xl p-6 text-white flex items-center gap-4">
+      <i class="fas fa-laptop-code it-icon text-4xl"></i>
+      <div>
+        <h1 class="text-3xl font-bold">IT Dashboard</h1>
+        <p class="mt-2 text-base opacity-90">Chào mừng bộ phận IT! Quản lý hệ thống, bảo mật và đổi mật khẩu tại đây.</p>
+      </div>
+    </div>
+    <div class="it-card bg-white p-8 rounded-b-2xl">
+      <div class="mb-8 text-center">
+        <span class="inline-block bg-blue-100 text-blue-800 px-4 py-2 rounded-full font-semibold shadow">
+          <i class="fas fa-user-shield it-icon"></i> Bảo mật hệ thống nâng cao
+        </span>
+        <p class="mt-4 text-gray-700">Bạn đang truy cập giao diện quản lý IT. Hãy đảm bảo thông tin cá nhân luôn được bảo vệ bằng Zero-Knowledge Proof.</p>
+      </div>
+      <div class="max-w-md mx-auto">
+        <button
+          onclick="document.getElementById('changePassForm').classList.toggle('hidden')"
+          class="it-btn mb-4 px-6 py-2 rounded-lg font-semibold transition w-full flex items-center justify-center gap-2"
+        >
+          <i class="fas fa-key it-icon"></i> Đổi mật khẩu
+        </button>
+        <form id="changePassForm" action="/change_password" method="POST" class="space-y-4 bg-blue-50 rounded-xl shadow-md p-8 hidden">
+          <div>
+            <input
+              type="password"
+              name="old_secret"
+              id="oldSecret"
+              placeholder="Mật khẩu hiện tại"
+              required
+              class="w-full px-4 py-2 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+            />
+          </div>
+          <div>
+            <input
+              type="password"
+              name="new_secret"
+              id="newSecret"
+              placeholder="Mật khẩu mới"
+              required
+              class="w-full px-4 py-2 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+            />
+          </div>
+          <div>
+            <input
+              type="password"
+              name="confirm_secret"
+              id="confirmSecret"
+              placeholder="Nhập lại mật khẩu mới"
+              required
+              class="w-full px-4 py-2 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+            />
+          </div>
+          <div class="flex items-center">
+            <input type="checkbox" id="showPassword" class="mr-2" />
+            <label for="showPassword" class="text-sm text-gray-700 select-none">Hiện mật khẩu</label>
+          </div>
+          <button
+            type="submit"
+            class="it-btn w-full py-2 rounded-lg font-semibold transition flex items-center justify-center gap-2"
+          >
+            <i class="fas fa-sync-alt it-icon"></i> Đổi mật khẩu
+          </button>
+        </form>
+      </div>
+    </div>
   </div>
+  <!-- FontAwesome for icons -->
+  <script src="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/js/all.min.js"></script>
 </body>
 </html>

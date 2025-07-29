@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ZK-Secure Employee Registration</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/snarkjs@0.7.1/build/snarkjs.min.js"></script>
+  <script src="/static/bundle.umd.js"></script>
+  <script src="/static/create_proof.js"></script>
+  <style>
+    body {
+        font-family: 'Roboto', sans-serif;
+        background-color: #f9fafb;
+    }
+    .zk-container {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    .form-container {
+        backdrop-filter: blur(10px);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    }
+    .input-field {
+        background-color: rgba(255, 255, 255, 0.9);
+        transition: all 0.3s;
+    }
+    .input-field:focus {
+        background-color: rgba(255, 255, 255, 1);
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.3);
+    }
+    .zk-badge {
+        background-color: rgba(255, 255, 255, 0.2);
+    }
+    .response-message {
+        transition: all 0.3s ease;
+        max-height: 0;
+        overflow: hidden;
+    }
+    .response-message.show {
+        max-height: 200px;
+        margin-top: 1rem;
+    }
+    .spinner {
+        animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+  <div class="w-full max-w-md">
+    <div class="zk-container rounded-t-lg p-6 text-white">
+      <div class="flex items-center space-x-3">
+        <i class="fas fa-shield-alt text-3xl"></i>
+        <div>
+          <h1 class="text-2xl font-bold">ZK-Secure Registration</h1>
+          <div class="flex space-x-2 mt-1">
+            <span class="zk-badge text-xs px-2 py-1 rounded-full">Zero-Knowledge</span>
+            <span class="zk-badge text-xs px-2 py-1 rounded-full">Privacy-First</span>
+          </div>
+        </div>
+      </div>
+      <p class="mt-4 text-sm opacity-90">Register securely using our Zero-Knowledge protocol system. Your credentials are cryptographically secured with ZK proof verification.</p>
+    </div>
+    
+    <div class="form-container bg-white p-6 rounded-b-lg">
+      <!-- Response Message Container (Initially Hidden) -->
+      <div id="responseMessage" class="response-message rounded-lg p-4 text-center text-sm font-medium"></div>
+      
+      <form id="registrationForm" action="/register" method="post" class="space-y-6">
+        <div>
+          <label class="block text-gray-700 text-sm font-medium mb-2" for="email">
+            <i class="fas fa-envelope mr-2 text-indigo-500"></i>Work Email
+          </label>
+          <input class="input-field px-4 py-3 rounded-lg w-full border border-gray-300 focus:outline-none"
+                 type="email"
+                 id="email"
+                 name="email"
+                 placeholder="name@role.company.com"
+                 required>
+        </div>
+        
+        <div>
+          <label class="block text-gray-700 text-sm font-medium mb-2" for="secret">
+            <i class="fas fa-key mr-2 text-indigo-500"></i>ZK Secret Key
+          </label>
+          <div class="relative">
+            <input class="input-field px-4 py-3 rounded-lg w-full border border-gray-300 focus:outline-none"
+                   type="password"
+                   id="secret"
+                   name="secret"
+                   placeholder="Enter your private key"
+                   required>
+            <button type="button" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 toggle-password">
+              <i class="fas fa-eye"></i>
+            </button>
+          </div>
+          <p class="mt-1 text-xs text-gray-500">Your secret key remains zero-knowledge and is used for cryptographic proof generation.</p>
+        </div>
+
+        <!-- Confirm Secret Key input -->
+        <div>
+          <label class="block text-gray-700 text-sm font-medium mb-2" for="confirmSecret">
+            <i class="fas fa-key mr-2 text-indigo-500"></i>Confirm Secret Key
+          </label>
+          <input class="input-field px-4 py-3 rounded-lg w-full border border-gray-300 focus:outline-none"
+                 type="password"
+                 id="confirmSecret"
+                 name="confirm_secret"
+                 placeholder="Re-enter your private key"
+                 required>
+        </div>
+        
+        <div class="bg-gray-50 p-4 rounded-lg">
+          <div class="flex items-center mb-3">
+            <i class="fas fa-lock text-green-600 mr-2"></i>
+            <span class="text-sm font-medium text-gray-700">Zero-Knowledge Security</span>
+          </div>
+          <p class="text-xs text-gray-500">Your credentials are protected using advanced ZK-SNARK protocols. Our system verifies your identity without knowing your actual secret.</p>
+        </div>
+        
+        <button type="submit" id="submitButton" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-4 rounded-lg transition duration-300 flex items-center justify-center">
+          <i class="fas fa-user-plus mr-2"></i>
+          <span>Register Securely</span>
+        </button>
+      </form>
+      
+      <div class="mt-6 pt-4 border-t border-gray-200 text-center">
+        <p class="text-xs text-gray-500">By registering, you agree to our company's ZK verification protocol</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const VALID_ROLES = ["it", "hr", "sales", "finance"];
+
+    document.getElementById('registrationForm').addEventListener('submit', async function(event) {
+      event.preventDefault();
+
+      const email = document.getElementById('email').value.trim();
+      const secret = document.getElementById('secret').value;
+      const confirmSecret = document.getElementById('confirmSecret').value;
+      const responseMessage = document.getElementById('responseMessage');
+      const submitButton = document.getElementById('submitButton');
+      const buttonContent = submitButton.innerHTML;
+
+      // 1. Kiểm tra xác nhận mật khẩu
+      if (secret !== confirmSecret) {
+        responseMessage.className = 'response-message show bg-red-50 text-red-700 border border-red-200 rounded-lg p-4 flex items-center justify-center gap-2';
+        responseMessage.innerHTML = `<i class="fas fa-exclamation-circle text-xl"></i> <span><strong>Lỗi:</strong> Secret key xác nhận không khớp!</span>`;
+        return;
+      }
+
+      // 2. Kiểm tra email đúng định dạng
+      const role = extractRoleFromEmail(email);
+      if (!VALID_ROLES.includes(role)) {
+        responseMessage.className = 'response-message show bg-yellow-50 text-yellow-800 border border-yellow-200 rounded-lg p-4 flex items-center justify-center gap-2';
+        responseMessage.innerHTML = `<i class="fas fa-info-circle text-xl"></i> <span><strong>Lưu ý:</strong> Email phải có dạng <b>name@role.company.com</b> với role là <b>it, hr, sales, finance</b>!</span>`;
+        return;
+      }
+
+      // 3. Hash email bằng Poseidon(email, 0)
+      submitButton.disabled = true;
+      submitButton.innerHTML = '<i class="fas fa-circle-notch spinner mr-2"></i><span>Đang kiểm tra email...</span>';
+      const emailHash = await hashLeaf(email, "0");
+
+      // 4. Gửi hash email lên server để kiểm tra trùng
+      const checkRes = await fetch('/check_email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email_hash: emailHash, role: role })
+      });
+      const checkData = await checkRes.json();
+      if (!checkData.success) {
+        responseMessage.className = 'response-message show bg-red-50 text-red-700 border border-red-200 rounded-lg p-4 flex items-center justify-center gap-2';
+        responseMessage.innerHTML = `<i class="fas fa-ban text-xl"></i> <span><strong>Lỗi:</strong> Email này đã tồn tại trong hệ thống!</span>`;
+        submitButton.disabled = false;
+        submitButton.innerHTML = buttonContent;
+        return;
+      }
+      //Thêm email và secret vào thư mục employees (bước thử nghiệm)
+      try { 
+        const addRes = await fetch('/add_employee', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: email,
+            secret: secret,
+            role: role
+          })
+        });
+        const addResult = await addRes.json();
+        if (addResult.success) {
+          alert('Thêm email và secret vào employees thành công!');
+        } else {
+          alert('Thêm vào employees thất bại: ' + addResult.message);
+        }
+      } catch (err) {
+        alert('Lỗi khi thêm vào employees: ' + err);
+      }
+      
+      // 5. Hash leaf bằng Poseidon(email, secret)
+      submitButton.innerHTML = '<i class="fas fa-circle-notch spinner mr-2"></i><span>Đang đăng ký...</span>';
+      const leafHash = await hashLeaf(email, secret);
+
+      // 6. Gửi hash email và hash leaf lên server để lưu
+      const regRes = await fetch('/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email_hash: emailHash, leaf_hash: leafHash, role: role })
+      });
+      const regData = await regRes.json();
+      if (regData.success) {
+        responseMessage.className = 'response-message show bg-green-50 text-green-800 border border-green-200 rounded-lg p-4 flex items-center justify-center gap-2';
+        responseMessage.innerHTML = `<i class="fas fa-check-circle text-xl"></i> <span><strong>Thành công!</strong> Đăng ký tài khoản thành công.</span>`;
+        document.getElementById('registrationForm').reset();
+      } else {
+        responseMessage.className = 'response-message show bg-red-50 text-red-700 border border-red-200 rounded-lg p-4 flex items-center justify-center gap-2';
+        responseMessage.innerHTML = `<i class="fas fa-times-circle text-xl"></i> <span><strong>Lỗi:</strong> ${regData.message || 'Đăng ký thất bại!'}</span>`;
+      }
+      // window.location.href = "/";
+      submitButton.disabled = false; 
+      submitButton.innerHTML = buttonContent;
+    });
+
+    document.addEventListener('DOMContentLoaded', function() {
+      // Toggle password visibility
+      const togglePassword = document.querySelector('.toggle-password');
+      const passwordField = document.querySelector('#secret');
+      const confirmPasswordField = document.querySelector('#confirmSecret');
+      
+      togglePassword.addEventListener('click', function() {
+        const type = passwordField.getAttribute('type') === 'password' ? 'text' : 'password';
+        passwordField.setAttribute('type', type);
+        confirmPasswordField.setAttribute('type', type);
+        this.querySelector('i').classList.toggle('fa-eye');
+        this.querySelector('i').classList.toggle('fa-eye-slash');
+      });
+    });
+  </script>
+</body>
+</html>

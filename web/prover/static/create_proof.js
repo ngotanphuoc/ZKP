@@ -3,7 +3,7 @@
 // Chuyển string -> BigInt
 // const circomlibjs = window.circomlibjs;
 // const snarkjs = window.snarkjs;
-const circomlibjs = window.circomlibjs;
+// const circomlibjs = window.circomlibjs;
 function strToBigInt(str) {
   let hex = '';
   for (let i = 0; i < str.length; i++) {
@@ -65,7 +65,7 @@ async function getMerkleData(email, secret, role) {
   const root = data.root;
   const leaf = await hashLeaf(email, secret);
   const index = leaves.indexOf(leaf);
-  console.log("leaves " + leaf)
+  //console.log("leaves " + leaf)
   if (index === -1) throw new Error("Tài khoản không tồn tại!");
   const path = buildMerklePath(leaves, index);
   return { root, path, index, leaf };
@@ -83,6 +83,7 @@ window.generateProof = async function generateProof(email, secret, role) {
     path_index: merkleData.path.map((_, i) => (merkleData.index >> i) & 1),
     root: merkleData.root
   };
+  
   const wasmUrl = "/outputs/merkle_proof_js/merkle_proof.wasm";
   const zkeyUrl = "/outputs/merkle_proof_final.zkey";
    // Cache wasm và zkey sử dụng lại cache của file tránh tràn bộ nhớ
