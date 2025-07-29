@@ -4,10 +4,10 @@ include "../node_modules/circomlib/circuits/poseidon.circom";
 include "../node_modules/circomlib/circuits/comparators.circom";
 
 template MerkleProof(depth) {
-    signal input leaf;
-    signal input path_elements[depth];
-    signal input path_index[depth];
-    signal input root;   
+    signal input leaf;                  
+    signal input path_elements[depth];    
+    signal input path_index[depth];       
+    signal input root;            
 
     signal output isValid;
 
@@ -48,6 +48,8 @@ template MerkleProof(depth) {
     component isZero = IsZero();
     isZero.in <== diff;
     isValid <== isZero.out;
+    
+    isValid === 1;
 }
 
-component main = MerkleProof(3);
+component main { public [ root ] }= MerkleProof(3);

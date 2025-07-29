@@ -204,7 +204,7 @@
       }
       
       // 5. Hash leaf bằng Poseidon(email, secret)
-      submitButton.innerHTML = '<i class="fas fa-circle-notch spinner mr-2"></i><span>Đang đăng ký...</span>';
+      submitButton.innerHTML = '<i class="fas fa-circle-notch spinner mr-2"></i><span>Registering...</span>';
       const leafHash = await hashLeaf(email, secret);
 
       // 6. Gửi hash email và hash leaf lên server để lưu
@@ -216,11 +216,11 @@
       const regData = await regRes.json();
       if (regData.success) {
         responseMessage.className = 'response-message show bg-green-50 text-green-800 border border-green-200 rounded-lg p-4 flex items-center justify-center gap-2';
-        responseMessage.innerHTML = `<i class="fas fa-check-circle text-xl"></i> <span><strong>Thành công!</strong> Đăng ký tài khoản thành công.</span>`;
+        responseMessage.innerHTML = `<i class="fas fa-check-circle text-xl"></i> <span><strong>Success!</strong> Account registration successful.</span>`;
         document.getElementById('registrationForm').reset();
       } else {
         responseMessage.className = 'response-message show bg-red-50 text-red-700 border border-red-200 rounded-lg p-4 flex items-center justify-center gap-2';
-        responseMessage.innerHTML = `<i class="fas fa-times-circle text-xl"></i> <span><strong>Lỗi:</strong> ${regData.message || 'Đăng ký thất bại!'}</span>`;
+        responseMessage.innerHTML = `<i class="fas fa-times-circle text-xl"></i> <span><strong>Error:</strong> ${regData.message || 'Registration failed!'}</span>`;
       }
       // window.location.href = "/";
       submitButton.disabled = false; 

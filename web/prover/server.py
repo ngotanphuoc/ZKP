@@ -9,20 +9,42 @@ import json
 
 
 def extract_role_from_email(email):
-    # Giả sử email có dạng: user@role.company.com
+    # Assume email format: user@role.company.com
     try:
         return email.split("@")[1].split(".")[0]
     except Exception:
         return None
 
-# Đảm bảo terminal hiển thị đúng UTF-8
+def find_role_by_root(target_root):
+    """Find role corresponding to root by checking all files in roots/"""
+    roles = ["finance", "hr", "it", "sales"]  # List of available roles
+    
+    for role in roles:
+        roots_path = os.path.abspath(os.path.join(os.path.dirname(__file__), f"../../roots/{role}.json"))
+        try:
+            if os.path.exists(roots_path):
+                with open(roots_path, 'r', encoding='utf-8') as f:
+                    root_data = json.load(f)
+                    stored_root = str(root_data.get('root', ''))
+                    
+                    if stored_root == str(target_root):
+                        return role
+            else:
+                print(f"[DEBUG] File does not exist: {roots_path}")
+        except Exception as e:
+            print(f"Error reading {roots_path}: {e}")
+            continue
+    
+    return None  # No role found
+
+# Ensure terminal displays UTF-8 correctly
 sys.stdout.reconfigure(encoding='utf-8')
 
 app = Flask(__name__)
 
 
 def poseidon_hash(inputs):
-    """Gọi Node.js script để hash Poseidon 2 input."""
+    #Call Node.js script to hash Poseidon with 2 inputs.
     if len(inputs) != 2:
         raise ValueError("Poseidon hash requires exactly 2 inputs.")
     js_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../merkle/poseidon_hash.js"))
@@ -41,55 +63,52 @@ with open(html_path, "r", encoding="utf-8") as f:
 
 # function to generate Merkle root
 def build_merkle_root(leaves):
-    # Chuyển leaves thành int nếu cần
+    # Convert leaves to int if needed
     nodes = [int(x) for x in leaves]
     while len(nodes) > 1:
         next_level = []
         for i in range(0, len(nodes), 2):
             left = nodes[i]
             right = nodes[i+1] if i+1 < len(nodes) else left
-            # Gọi hàm poseidon_hash 2 input (giống backend bạn đang dùng)
+            # Call poseidon_hash with 2 inputs (same as backend you're using)
             h = poseidon_hash([left, right])
             next_level.append(h)
         nodes = next_level
     return str(nodes[0])
 
-# Hàm để verify proof từ client
+# Function to verify proof from client
 def verify_proof_from_client(proof, public_signals):
-    # Đường dẫn tới zkey và verification key
+    # Path to zkey and verification key
     vkey_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../outputs/verification_key.json"))
 
-    # Đường dẫn tới thư mục outputs để lưu file tạm thời
+    # Path to outputs directory to save temporary files
     outputs_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../outputs"))
     proof_path = os.path.join(outputs_dir, "proof.json")
     public_path = os.path.join(outputs_dir, "public.json")
 
-    # Lưu proof và public signals tạm thời vào thư mục outputs
+    # Save proof and public signals temporarily to outputs directory
     with open(proof_path, "w", encoding="utf-8") as f:
         json.dump(proof, f)
     with open(public_path, "w", encoding="utf-8") as f:
         json.dump(public_signals, f)
 
-    # Gọi snarkjs để verify
+    # Call snarkjs to verify
     try:
         result = subprocess.run([
             "snarkjs.cmd", "groth16", "verify",
             vkey_path, public_path, proof_path
         ], capture_output=True, text=True, check=True)
-        # Kiểm tra isValid trong public_signals
-        is_valid = str(public_signals[-1])  # isValid thường là phần tử cuối
-        if is_valid != "1":
-            return False, "isValid signal != 1 (proof không hợp lệ)"
+        
         return True, result.stdout
     except subprocess.CalledProcessError as e:
         return False, e.stderr
 
-# Route chính để xử lý đăng nhập
+# Main route to handle login
 @app.route("/", methods=["GET", "POST"])
 def zk_process():
     return render_template_string(html_template)
 
-#xử lí sk khi người dùng gửi proof và public signals lên 
+# Handle when user sends proof and public signals
 @app.route('/verify_login', methods=['POST'])
 def verify_login_route():
     data = request.get_json()
@@ -98,12 +117,37 @@ def verify_login_route():
 
     ok, msg = verify_proof_from_client(proof, public_signals)
     if ok:
-        return jsonify({"success": True, "message": "Proof hợp lệ!", "log": msg})
+        if len(public_signals) >= 2:
+            # verified_root from public signals
+            verified_root = str(public_signals[1])
+            
+            # Find role corresponding to verified_root
+            role = find_role_by_root(verified_root)
+            if role:
+                # Return URL for client to redirect (still safe because server has verified)
+                return jsonify({
+                    "success": True, 
+                    "message": "Login successful!", 
+                    "role": role,
+                    "redirect_url": f"/home/{role}-dashboard.html"
+                })
+            else:
+                return jsonify({
+                    "success": False, 
+                    "message": "Root has been tampered with or does not exist in the system!",
+                    "verified_root": verified_root
+                })
+        else:
+            return jsonify({
+                "success": False, 
+                "message": "Public signals incomplete!", 
+                "log": msg
+            })
     else:
-        return jsonify({"success": False, "message": "Proof không hợp lệ!", "log": msg})
+        return jsonify({"success": False, "message": "Proof is invalid!", "log": msg})
 
-#=====================================  đăng kí tai khoản mới =========================================
-#check email exist   
+#=====================================  Register new account =========================================
+# Check email exists   
 @app.route('/check_email', methods=['POST'])
 def check_email():
     data = request.get_json()
@@ -111,17 +155,17 @@ def check_email():
     role = data['role']
     roots_path = os.path.abspath(os.path.join(os.path.dirname(__file__), f"../../roots/{role}.json"))
     if not os.path.exists(roots_path):
-        return jsonify({"success": False, "message": "Role không tồn tại!"})
+        return jsonify({"success": False, "message": "Role does not exist!"})
 
     with open(roots_path, 'r', encoding='utf-8') as f:
         roots = json.load(f)
     emails = roots.get('emails', [])
-    # Kiểm tra trùng email
+    # Check duplicate email
     if email_hash in emails:
-        return jsonify({"success": False, "message": "Email đã tồn tại!"})
-    return jsonify({"success": True, "message": "Email chưa tồn tại, có thể đăng ký."})
+        return jsonify({"success": False, "message": "Email already exists!"})
+    return jsonify({"success": True, "message": "Email does not exist, can register."})
 
-# Đăng ký tài khoản mới
+# Register new account
 @app.route('/register', methods=['POST'])
 def register():
     data = request.get_json()
@@ -130,7 +174,7 @@ def register():
     role = data['role']
     roots_path = os.path.abspath(os.path.join(os.path.dirname(__file__), f"../../roots/{role}.json"))
     if not os.path.exists(roots_path):
-        return jsonify({"success": False, "message": "Role không tồn tại!"})
+        return jsonify({"success": False, "message": "Role does not exist!"})
     with open(roots_path, 'r', encoding='utf-8') as f:
         roots = json.load(f)
     leaves = roots.get('leaves', [])
@@ -138,7 +182,7 @@ def register():
     try:
         idx = leaves.index("0")
     except ValueError:
-        return jsonify({"success": False, "message": "Hết slot đăng ký!"})
+        return jsonify({"success": False, "message": "No registration slots available!"})
     leaves[idx] = leaf_hash
     if len(emails) < len(leaves):
         emails.append(email_hash)
@@ -149,9 +193,9 @@ def register():
     roots['root'] = build_merkle_root(leaves)
     with open(roots_path, 'w', encoding='utf-8') as f:
         json.dump(roots, f, ensure_ascii=False, indent=2)
-    return jsonify({"success": True, "message": "Đăng ký thành công!"})
+    return jsonify({"success": True, "message": "Registration successful!"})
 
-#thêm email và secret vào file trong folder employees (Bước thử nghiệm)
+# Add email and secret to file in employees folder (Trial step)
 @app.route('/add_employee', methods=['POST'])
 def add_employee():
     data = request.get_json()
@@ -174,7 +218,7 @@ def add_employee():
     
 #====================================================================================================
 
-#======================================== Đổi mật khẩu ========================================
+#======================================== Change Password ========================================
 
 @app.route('/change_password', methods=['POST'])
 def change_password():
@@ -185,14 +229,14 @@ def change_password():
         role = data['role']
         roots_path = os.path.abspath(os.path.join(os.path.dirname(__file__), f"../../roots/{role}.json"))
         if not os.path.exists(roots_path):
-            return jsonify({"success": False, "message": f"Không tìm thấy file {roots_path}"}), 400
+            return jsonify({"success": False, "message": f"File {roots_path} not found"}), 400
 
         with open(roots_path, 'r', encoding='utf-8') as f:
             roots = json.load(f)
 
-        # Kiểm tra index hợp lệ
+        # Check valid index
         if not (0 <= index < len(roots['leaves'])):
-            return jsonify({"success": False, "message": "Index không hợp lệ!"}), 400
+            return jsonify({"success": False, "message": "Invalid index!"}), 400
 
         roots['leaves'][index] = new_leaf
         roots['root'] = build_merkle_root(roots['leaves'])
@@ -201,17 +245,17 @@ def change_password():
         with open(roots_path, 'w', encoding='utf-8') as f:
             json.dump(roots, f, ensure_ascii=False, indent=2)
 
-        return jsonify({"success": True, "message": "Đổi mật khẩu thành công!"})
+        return jsonify({"success": True, "message": "Password changed successfully!"})
     except Exception as e:
         import traceback
         print(traceback.format_exc())
-        return jsonify({"success": False, "message": f"Lỗi server: {e}"}), 500
+        return jsonify({"success": False, "message": f"Server error: {e}"}), 500
 
 #====================================================================================================
 
-#========================================= Chức năng xóa leaves =========================================
+#========================================= Delete leaves function =========================================
 
-# Lấy danh sách leaves theo role
+# Get list of leaves by role
 @app.route('/get_leaves', methods=['POST'])
 def get_leaves():
     try:
@@ -220,7 +264,7 @@ def get_leaves():
         
         roots_path = os.path.abspath(os.path.join(os.path.dirname(__file__), f"../../roots/{role}.json"))
         if not os.path.exists(roots_path):
-            return jsonify({"success": False, "message": f"Role {role} không tồn tại!"})
+            return jsonify({"success": False, "message": f"Role {role} does not exist!"})
 
         with open(roots_path, 'r', encoding='utf-8') as f:
             roots = json.load(f)
@@ -228,19 +272,19 @@ def get_leaves():
         leaves = roots.get('leaves', [])
         return jsonify({"success": True, "leaves": leaves})
     except Exception as e:
-        return jsonify({"success": False, "message": f"Lỗi server: {e}"})
+        return jsonify({"success": False, "message": f"Server error: {e}"})
 
-# Xóa leaves theo indices
+# Delete leaves by indices
 @app.route('/delete_leaves', methods=['POST'])
 def delete_leaves():
     try:
         data = request.get_json()
         role = data['role']
-        indices = data['indices']  # Danh sách các index cần xóa
+        indices = data['indices']  # List of indices to delete
         
         roots_path = os.path.abspath(os.path.join(os.path.dirname(__file__), f"../../roots/{role}.json"))
         if not os.path.exists(roots_path):
-            return jsonify({"success": False, "message": f"Role {role} không tồn tại!"})
+            return jsonify({"success": False, "message": f"Role {role} does not exist!"})
 
         with open(roots_path, 'r', encoding='utf-8') as f:
             roots = json.load(f)
@@ -248,70 +292,70 @@ def delete_leaves():
         leaves = roots.get('leaves', [])
         emails = roots.get('emails', [])
         
-        # Kiểm tra indices hợp lệ
+        # Check valid indices
         for idx in indices:
             if not (0 <= idx < len(leaves)):
-                return jsonify({"success": False, "message": f"Index {idx} không hợp lệ!"})
+                return jsonify({"success": False, "message": f"Index {idx} is invalid!"})
             if leaves[idx] == '0':
-                return jsonify({"success": False, "message": f"Index {idx} đã trống!"})
+                return jsonify({"success": False, "message": f"Index {idx} is already empty!"})
 
-        # Đọc file employees để xóa email và secret tương ứng
+        # Read employees file to delete corresponding email and secret
         employees_path = os.path.abspath(os.path.join(os.path.dirname(__file__), f"../../employees/employees_{role}.json"))
         employees = []
         if os.path.exists(employees_path):
             with open(employees_path, 'r', encoding='utf-8') as f:
                 employees = json.load(f)
 
-        # Sắp xếp indices theo thứ tự giảm dần để xóa từ cuối lên
+        # Sort indices in descending order to delete from end to beginning
         sorted_indices = sorted(indices, reverse=True)
         
-        # Xóa leaves, emails và employees theo indices
+        # Delete leaves, emails and employees by indices
         for idx in sorted_indices:
-            # Xóa leaf
+            # Delete leaf
             leaves[idx] = '0'
-            # Xóa email tương ứng trực tiếp khỏi mảng
+            # Delete corresponding email directly from array
             if idx < len(emails):
                 emails.pop(idx)
-            # Xóa employee tương ứng từ file employees
+            # Delete corresponding employee from employees file
             if idx < len(employees):
                 employees.pop(idx)
 
-        # Dịch chuyển các leaves không phải 0 lên đầu
+        # Move non-zero leaves to the front
         non_zero_leaves = [leaf for leaf in leaves if leaf != '0']
         zero_count = len(leaves) - len(non_zero_leaves)
         leaves = non_zero_leaves + ['0'] * zero_count
 
-        # Emails chỉ chứa các email thực tế, không chứa '0'
-        # Không cần thêm '0' vào emails
+        # Emails only contain actual emails, not '0'
+        # No need to add '0' to emails
 
-        # Cập nhật lại root
+        # Update root
         roots['leaves'] = leaves
         roots['emails'] = emails
         roots['root'] = build_merkle_root(leaves)
 
-        # Lưu file roots
+        # Save roots file
         with open(roots_path, 'w', encoding='utf-8') as f:
             json.dump(roots, f, ensure_ascii=False, indent=2)
 
-        # Lưu lại file employees đã được cập nhật
+        # Save updated employees file
         if os.path.exists(employees_path):
             with open(employees_path, 'w', encoding='utf-8') as f:
                 json.dump(employees, f, ensure_ascii=False, indent=2)
 
-        return jsonify({"success": True, "message": f"Đã xóa {len(indices)} leaves và employees tương ứng thành công!"})
+        return jsonify({"success": True, "message": f"Successfully deleted {len(indices)} leaves and corresponding employees!"})
     except Exception as e:
         import traceback
         print(traceback.format_exc())
-        return jsonify({"success": False, "message": f"Lỗi server: {e}"})
+        return jsonify({"success": False, "message": f"Server error: {e}"})
 
 #====================================================================================================
 
-#========================================= Các chức năng chuyển hướng và lấy file json =========================================
+#========================================= Redirect and JSON file functions =========================================
 
-# Chuyển hướng dashboard theo role
+# Redirect dashboard by role
 @app.route("/home/<path:filename>")
 def serve_home(filename):
-    # Lấy đường dẫn thư mục home cùng cấp với prover
+    # Get path to home directory at same level as prover
     home_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../home"))
     return send_from_directory(home_dir, filename)
 
@@ -327,19 +371,19 @@ def serve_delete():
     html_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../Delete/Delete.html"))
     return send_file(html_path)
 
-#để cập nhật lại mật khẩu lúc chưa hash
+# To update password when not yet hashed
 @app.route('/update_employee_secret', methods=['POST'])
 def update_employee_secret():
     data = request.get_json()
     email = data['email']
     role = data['role']
     new_secret = data['new_secret']
-    # Đường dẫn tuyệt đối tới file employees
+    # Absolute path to employees file
     employees_path = os.path.abspath(os.path.join(os.path.dirname(__file__), f"../../employees/employees_{role}.json"))
     try:
         with open(employees_path, 'r', encoding='utf-8') as f:
             employees = json.load(f)
-        # Cập nhật theo email
+        # Update by email
         for emp in employees:
             if emp['email'] == email:
                 emp['secret'] = new_secret
@@ -352,7 +396,7 @@ def update_employee_secret():
     
 @app.route('/roots/<path:filename>')
 def serve_myfile(filename):
-    # Đường dẫn tuyệt đối hoặc tương đối tới thư mục chứa file
+    # Absolute or relative path to directory containing file
     file_path = f"../../roots/{filename}"
     return send_file(file_path)
 

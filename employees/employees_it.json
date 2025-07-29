@@ -1,6 +1,14 @@
 [
   {
     "email": "caroles@it.company.com",
+    "secret": "1234"
+  },
+  {
+    "email": "grace@it.company.com",
     "secret": "123"
+  },
+  {
+    "email": "phuoc@it.company.com",
+    "secret": "1234"
   }
 ]

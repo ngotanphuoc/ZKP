@@ -159,20 +159,20 @@
     let currentLeaves = [];
     let selectedIndices = new Set();
 
-    // Hàm hiển thị thông báo và tự động ẩn sau 1.2s
+    // Function to display message and auto-hide after 1.2s
     function showMessage(className, content) {
       const responseMessage = document.getElementById('responseMessage');
       responseMessage.className = className;
       responseMessage.innerHTML = content;
       
-      // Tự động ẩn thông báo sau 1.2s
+      // Auto-hide message after 1.2s
       setTimeout(() => {
         responseMessage.className = 'response-message';
         responseMessage.innerHTML = '';
       }, 1200);
     }
 
-    // Load leaves khi chọn role
+    // Load leaves when selecting role
     document.getElementById('loadLeavesButton').addEventListener('click', async function() {
       const role = document.getElementById('role').value;
       
@@ -223,7 +223,7 @@
       }
     });
 
-    // Hiển thị danh sách leaves
+    // Display leaves list
     function displayLeaves(leaves) {
       const container = document.getElementById('leavesContainer');
       container.innerHTML = '';
@@ -239,7 +239,7 @@
       }
 
       leaves.forEach((leaf, index) => {
-        if (leaf !== '0') { // Chỉ hiển thị leaves không phải là 0
+        if (leaf !== '0') { // Only display leaves that are not 0
           const leafElement = document.createElement('div');
           leafElement.className = 'leaf-item border-2 border-gray-200 rounded-lg p-4 hover:border-red-300';
           leafElement.dataset.index = index;
@@ -273,7 +273,7 @@
       });
     }
 
-    // Toggle chọn leaf
+    // Toggle leaf selection
     function toggleLeafSelection(index, element) {
       const checkbox = element.querySelector('.fa-check');
       const checkboxContainer = element.querySelector('div > div > div');
@@ -295,7 +295,7 @@
       updateSelectedCount();
     }
 
-    // Cập nhật số lượng đã chọn
+    // Update selected count
     function updateSelectedCount() {
       const count = selectedIndices.size;
       document.getElementById('selectedCount').textContent = count;
@@ -349,7 +349,7 @@
       button.innerHTML = '<i class="fas fa-circle-notch spinner mr-2"></i><span>Deleting records...</span>';
 
       try {
-        const indicesToDelete = Array.from(selectedIndices).sort((a, b) => b - a); // Sort descending để xóa từ cuối lên
+        const indicesToDelete = Array.from(selectedIndices).sort((a, b) => b - a); // Sort descending to delete from end to beginning
         
         const response = await fetch('/delete_leaves', {
           method: 'POST',

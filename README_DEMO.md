@@ -1,128 +1,190 @@
-# ZK-RBAC Demo System
+# ZK-RBAC: Zero-Knowledge Role-Based Access Control
 
-## 🎯 Demo Zero-Knowledge Proof với Merkle Tree
+## 🎯 Tổng quan
 
-Project demo các chức năng cơ bản:
-- **Thêm leaves** vào Merkle tree (đăng ký nhân viên)
-- **Xóa leaves** khỏi Merkle tree (xóa nhân viên) 
-- **Đăng nhập** bằng ZK proof mà không tiết lộ mật khẩu
+Hệ thống xác thực dựa trên Zero-Knowledge Proof và Merkle Tree, cho phép người dùng chứng minh quyền truy cập mà không tiết lộ thông tin nhạy cảm.
 
-## ✨ Chức năng Demo
+## 🔑 Tính năng chính
 
-- **➕ Thêm**: Đăng ký nhân viên mới vào cây Merkle
-- **➖ Xóa**: Xóa nhân viên và cập nhật cây Merkle
-- **🔐 Đăng nhập**: Xác thực bằng ZK proof
-- **👥 Phân nhóm**: 4 phòng ban riêng biệt (IT, HR, Sales, Finance)
+- **🔐 ZK Authentication**: Đăng nhập mà không tiết lộ mật khẩu
+- **🌳 Merkle Tree Management**: Quản lý danh sách nhân viên theo phòng ban
+- **👥 Role-Based Access**: Phân quyền theo 4 phòng ban (IT, HR, Sales, Finance)
+- **🛡️ Cryptographic Security**: Sử dụng ZK-SNARKs và Poseidon hash
 
-## 🛠️ Công nghệ
+## 🏗️ Kiến trúc hệ thống
 
-- **ZK-SNARKs**: Tạo và verify proof
-- **Merkle Trees**: Lưu trữ dữ liệu nhân viên
-- **Poseidon Hash**: Hash function cho ZK circuits
-- **Python Flask**: Backend API
-- **JavaScript**: Frontend logic
+### Frontend (Browser)
+- **Proof Generation**: Tạo ZK proof từ email + secret
+- **Merkle Path**: Tính toán đường đi trong cây Merkle
+- **Privacy**: Secret không bao giờ rời khỏi browser
 
-## 🚀 Chạy Demo
+### Backend (Server)  
+- **Proof Verification**: Verify ZK proof bằng snarkjs
+- **Role Management**: Quản lý root hash cho từng phòng ban
+- **Access Control**: Chuyển hướng dựa trên verified root
 
-### 1. Cài đặt
+### Cryptographic Components
+- **ZK-SNARKs**: Groth16 proving system
+- **Poseidon Hash**: ZK-friendly hash function
+- **Merkle Trees**: Efficient membership proof
+
+## 🚀 Cài đặt và chạy
+
+### 1. Yêu cầu hệ thống
 ```bash
-git clone <repository-url>
-cd zk_rbac_proof
-pip install flask
-npm install circomlib snarkjs
+# Node.js để compile Circom
+node --version  # >= 16.0.0
+
+# Python để chạy server
+python --version  # >= 3.8
+
+# Circom toolchain (nếu cần compile lại circuit)
+npm install -g circom snarkjs
 ```
 
-### 2. Khởi động
+### 2. Khởi động server
 ```bash
 cd web/prover
 python server.py
 ```
 
-### 3. Demo URLs
-- **Đăng nhập**: http://localhost:5001/
-- **Đăng ký (Thêm)**: http://localhost:5001/register  
-- **Xóa nhân viên**: http://localhost:5001/delete
+### 3. Truy cập ứng dụng
+- **Login**: http://localhost:5001/
+- **Register**: http://localhost:5001/register
+- **Admin**: http://localhost:5001/delete
 
-## 💡 Demo Workflow
+## � Hướng dẫn sử dụng
 
-### 1. Thêm Leaves (Đăng ký)
-1. Vào `/register`
+### Đăng ký nhân viên mới
+1. Truy cập `/register`
+2. Chọn phòng ban: `it`, `hr`, `sales`, `finance`
+3. Nhập email: `alice@it.company.com`
+4. Nhập secret: `mypassword123`
+5. Hệ thống tạo leaf hash và cập nhật Merkle tree
+
+### Đăng nhập ZK Proof
+1. Truy cập `/`
+2. Nhập email và secret đã đăng ký
+3. Browser tạo ZK proof (2-5 giây)
+4. Server verify proof và chuyển hướng đến dashboard tương ứng
+
+### Quản lý nhân viên
+1. Truy cập `/delete`
 2. Chọn phòng ban
-3. Nhập email: `name@phongban.company.com`
-4. Nhập mật khẩu
-5. ✅ **Leaf mới được thêm vào Merkle tree**
+3. Xem danh sách leaves hiện có
+4. Xóa nhân viên không cần thiết
 
-### 2. Đăng nhập ZK Proof
-1. Vào `/`
-2. Nhập thông tin đã đăng ký
-3. ✅ **Tạo ZK proof để chứng minh biết mật khẩu mà không tiết lộ**
-4. Chuyển đến dashboard
+## � Cấu trúc dữ liệu
 
-### 3. Xóa Leaves 
-1. Vào `/delete`
-2. Chọn phòng ban
-3. Chọn nhân viên cần xóa
-4. ✅ **Leaves bị xóa và cây Merkle được cập nhật**
-
-## 📁 Dữ liệu Demo
-
-### Merkle Tree Structure
-```
-roots/{role}.json - Chứa cây Merkle của mỗi phòng ban
-├── root: hash gốc của cây
-├── leaves: [leaf1, leaf2, "0", "0"] 
-└── emails: [email_hash1, email_hash2]
+### Merkle Tree Files (`roots/{role}.json`)
+```json
+{
+  "root": "1234567890...",
+  "leaves": [
+    "9876543210...",  // hash(email1, secret1)
+    "1111111111...",  // hash(email2, secret2)
+    "0",              // empty slot
+    "0"               // empty slot
+  ],
+  "emails": [
+    "hash_of_email1",
+    "hash_of_email2"
+  ]
+}
 ```
 
-### Raw Data
-```
-employees/employees_{role}.json - Dữ liệu thô để demo
+### Employee Data (`employees/employees_{role}.json`)
+```json
 [
-  {"email": "user@it.company.com", "secret": "password123"}
+  {
+    "email": "alice@it.company.com",
+    "secret": "mypassword123"
+  }
 ]
 ```
 
-## 🔍 Demo Features
+## � Bảo mật và Privacy
 
-### ✅ Thêm Leaves
-- Hash email + secret thành leaf
-- Tìm slot trống (giá trị "0")  
-- Thêm leaf vào vị trí trống
-- Cập nhật root hash
+### Zero-Knowledge Properties
+- **Completeness**: User hợp lệ luôn tạo được proof
+- **Soundness**: User không hợp lệ không thể fake proof  
+- **Zero-Knowledge**: Server không biết secret của user
 
-### ✅ Xóa Leaves
-- Chọn multiple leaves để xóa
-- Set leaves về "0"
-- Dịch chuyển leaves còn lại lên đầu
-- Cập nhật root hash
+### Security Features
+- ✅ **Client-side proof generation**: Secret không rời browser
+- ✅ **Server-side verification**: Đảm bảo proof hợp lệ
+- ✅ **Role-based redirect**: Server kiểm soát quyền truy cập
+- ✅ **Merkle membership**: Chứng minh thuộc danh sách mà không tiết lộ vị trí
 
-### ✅ ZK Login
-- Client tạo Merkle proof
-- Tạo ZK-SNARK proof 
-- Server verify mà không biết mật khẩu
-- Redirect theo phòng ban
+## ⚡ Performance
 
-## 🎮 Demo Tips
+| Operation | Time | Note |
+|-----------|------|------|
+| Proof Generation | 2-5s | Client-side, depends on device |
+| Proof Verification | <100ms | Server-side with snarkjs |
+| Tree Update | <50ms | Add/remove employees |
+| Max Capacity | 8 employees/dept | Configurable in circuit |
 
-- **Tối đa 8 nhân viên/phòng ban**
-- **Email format**: `name@{it|hr|sales|finance}.company.com`
-- **Mỗi phòng ban có cây Merkle riêng**
-- **ZK proof mất 2-5 giây để tạo**
+## 🔧 Cấu hình nâng cao
 
-## 🔐 Security Features
+### Thay đổi số lượng employee tối đa
+1. Sửa file `circuits/merkle_proof.circom`
+2. Thay đổi parameter `levels`
+3. Recompile circuit và generate setup
 
-- **Zero-Knowledge**: Server không bao giờ thấy mật khẩu
-- **Merkle Proof**: Chứng minh membership mà không tiết lộ dữ liệu khác
-- **Role Separation**: Mỗi phòng ban có cây riêng biệt
-- **Cryptographic Hash**: Sử dụng Poseidon hash cho ZK circuits
+### Thêm phòng ban mới
+1. Tạo file `roots/newdept.json`
+2. Tạo file `employees/employees_newdept.json`
+3. Cập nhật logic trong server.py
 
-## 📊 Demo Performance
+## 🐛 Troubleshooting
 
-- **Proof Generation**: 2-5 giây
-- **Proof Verification**: <100ms
-- **Tree Update**: <50ms
-- **Max Employees**: 8 per department
+### Lỗi thường gặp
+
+**"Không tìm thấy file wasm"**
+- Đảm bảo đã compile circuit thành công
+- Check file `outputs/merkle_proof_js/merkle_proof.wasm`
+
+**"Proof generation failed"**
+- Kiểm tra email/secret có trong danh sách không
+- Verify Merkle tree structure trong `roots/{role}.json`
+
+**"Proof verification failed"**
+- Đảm bảo `verification_key.json` đúng version
+- Check log server để xem chi tiết lỗi
+
+## 📚 Tài liệu kỹ thuật
+
+### Circuit Logic
+```
+Input:
+- leaf: hash(email, secret)
+- path_elements: [sibling1, sibling2, ...]
+- path_index: [0/1, 0/1, ...] (direction bits)
+- root: expected Merkle root
+
+Output:
+- isValid: 1 if proof valid, 0 otherwise
+- verified_root: computed root from path
+```
+
+### API Endpoints
+- `POST /verify_login`: Verify ZK proof và redirect
+- `POST /register`: Đăng ký nhân viên mới
+- `POST /delete_leaves`: Xóa nhân viên khỏi tree
+- `GET /roots/{role}.json`: Lấy Merkle data cho role
+
+## 🤝 Contribute
+
+1. Fork repository
+2. Tạo feature branch
+3. Implement và test
+4. Submit pull request
+
+## 📄 License
+
+MIT License - Xem file LICENSE để biết chi tiết
 
 ---
 
-**🎯 Zero-Knowledge Demo với Merkle Tree Operations**
+**🎯 Zero-Knowledge Authentication với Merkle Tree Management**

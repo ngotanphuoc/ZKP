@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <title>Finance Dashboard</title>
@@ -45,22 +45,22 @@
       <i class="fas fa-coins finance-icon text-4xl"></i>
       <div>
         <h1 class="text-3xl font-bold">Finance Dashboard</h1>
-        <p class="mt-2 text-base opacity-90">Chào mừng bộ phận tài chính! Quản lý thông tin, bảo mật và đổi mật khẩu tại đây.</p>
+        <p class="mt-2 text-base opacity-90">Welcome to the Finance Department! Manage information, security, and change passwords here.</p>
       </div>
     </div>
     <div class="finance-card bg-white p-8 rounded-b-2xl">
       <div class="mb-8 text-center">
         <span class="inline-block bg-purple-100 text-purple-800 px-4 py-2 rounded-full font-semibold shadow">
-          <i class="fas fa-user-shield finance-icon"></i> Bảo mật tài chính nâng cao
+          <i class="fas fa-user-shield finance-icon"></i> Advanced Financial Security
         </span>
-        <p class="mt-4 text-gray-700">Bạn đang truy cập giao diện quản lý tài chính. Hãy đảm bảo thông tin cá nhân luôn được bảo vệ bằng Zero-Knowledge Proof.</p>
+        <p class="mt-4 text-gray-700">You are accessing the financial management interface. Please ensure your personal information is always protected with Zero-Knowledge Proof.</p>
       </div>
       <div class="max-w-md mx-auto">
         <button
           onclick="document.getElementById('changePassForm').classList.toggle('hidden')"
           class="finance-btn mb-4 px-6 py-2 rounded-lg font-semibold transition w-full flex items-center justify-center gap-2"
         >
-          <i class="fas fa-key finance-icon"></i> Đổi mật khẩu
+          <i class="fas fa-key finance-icon"></i> Change Password
         </button>
         <form id="changePassForm" action="/change_password" method="POST" class="space-y-4 bg-purple-50 rounded-xl shadow-md p-8 hidden">
           <div>
@@ -68,7 +68,7 @@
               type="password"
               name="old_secret"
               id="oldSecret"
-              placeholder="Mật khẩu hiện tại"
+              placeholder="Current Password"
               required
               class="w-full px-4 py-2 border border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
             />
@@ -78,7 +78,7 @@
               type="password"
               name="new_secret"
               id="newSecret"
-              placeholder="Mật khẩu mới"
+              placeholder="New Password"
               required
               class="w-full px-4 py-2 border border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
             />
@@ -88,20 +88,20 @@
               type="password"
               name="confirm_secret"
               id="confirmSecret"
-              placeholder="Nhập lại mật khẩu mới"
+              placeholder="Confirm New Password"
               required
               class="w-full px-4 py-2 border border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
             />
           </div>
           <div class="flex items-center">
             <input type="checkbox" id="showPassword" class="mr-2" />
-            <label for="showPassword" class="text-sm text-gray-700 select-none">Hiện mật khẩu</label>
+            <label for="showPassword" class="text-sm text-gray-700 select-none">Show Password</label>
           </div>
           <button
             type="submit"
             class="finance-btn w-full py-2 rounded-lg font-semibold transition flex items-center justify-center gap-2"
           >
-            <i class="fas fa-sync-alt finance-icon"></i> Đổi mật khẩu
+            <i class="fas fa-sync-alt finance-icon"></i> Confirm
           </button>
         </form>
       </div>

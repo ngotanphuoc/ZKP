@@ -4,111 +4,127 @@ document.addEventListener('DOMContentLoaded', function () {
       changePassForm.addEventListener('submit', async function (e) {
         e.preventDefault();
 
-        // Lấy email và role từ localStorage
-        const email = localStorage.getItem('zk_email');
-        if (!email) {
-          alert('Không tìm thấy email đăng nhập!');
-          return false;
-        }
-        const role = extractRoleFromEmail(email); // Hàm này bạn đã có ở client
+        // Lấy nút submit và lưu trạng thái ban đầu
+        const submitBtn = this.querySelector('button[type="submit"]');
+        const originalHTML = submitBtn.innerHTML;
+        
+        // Chuyển nút thành trạng thái "Đang xác nhận..."
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin finance-icon"></i> Đang xác nhận...';
+        submitBtn.disabled = true;
 
-        // Lấy giá trị các trường
-        const oldSecret = this.querySelector('input[name="old_secret"]').value;
-        const newSecret = this.querySelector('input[name="new_secret"]').value;
-        const confirmSecret = this.querySelector('input[name="confirm_secret"]').value;
-
-        // Kiểm tra mật khẩu mới và xác nhận
-        if (newSecret !== confirmSecret) {
-          alert('Mật khẩu mới và xác nhận không khớp!');
-          return false;
-        }
-
-        // Kiểm tra mật khẩu mới có khác mật khẩu cũ không
-         if (newSecret === oldSecret) {
-          alert('Mật khẩu mới không được trùng với mật khẩu hiện tại!');
-          return false;
-        }
-
-        // 1. Sinh proof xác thực mật khẩu cũ
-        let proof, publicSignals, index;
         try {
-          ({ proof, publicSignals , index } = await generateProof(email, oldSecret, role));
-          alert('Sinh proof thành công!');
-        } catch (err) {
-          alert('Lỗi khi sinh proof xác thực mật khẩu cũ: ' + err);
-          return false;
-        }
+          // Lấy email và role từ localStorage
+          const email = localStorage.getItem('zk_email');
+          if (!email) {
+            alert('Login email not found!');
+            return;
+          }
+          const role = extractRoleFromEmail(email); // Hàm này bạn đã có ở client
 
-        //2. Gửi proof lên server để xác thực mật khẩu cũ
-        try {
-          const res = await fetch('/verify_login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ proof, publicSignals })
-          });
-          const result = await res.json();
-          if (!result.success) {
-            alert('Mật khẩu hiện tại không đúng!');
-            return false;
-          }else{
-            alert('Xác thực mật khẩu cũ thành công! có index = ' + String(index));
-            // Gửi request cập nhật secret lên server
-            try {
-              const updateRes = await fetch('/update_employee_secret', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  email: email,
-                  role: role,
-                  new_secret: newSecret
-                })
-              });
-              const updateResult = await updateRes.json();
-              if (updateResult.success) {
-                alert('Cập nhật mật khẩu mới trong employees thành công!');
-              } else {
-                alert('Cập nhật employees thất bại: ' + updateResult.message);
+          // Lấy giá trị các trường
+          const oldSecret = this.querySelector('input[name="old_secret"]').value;
+          const newSecret = this.querySelector('input[name="new_secret"]').value;
+          const confirmSecret = this.querySelector('input[name="confirm_secret"]').value;
+
+          // Check if new password matches confirmation
+          if (newSecret !== confirmSecret) {
+            alert('New password and confirmation do not match!');
+            return;
+          }
+
+          // Check if new password is different from current password
+          if (newSecret === oldSecret) {
+            alert('New password cannot be the same as current password!');
+            return;
+          }
+
+          // 1. Generate proof to verify old password
+          let proof, publicSignals, index;
+          try {
+            ({ proof, publicSignals , index } = await generateProof(email, oldSecret, role));
+            alert('Proof generated successfully!');
+          } catch (err) {
+            alert('Error generating old password verification proof: ' + err);
+            return;
+          }
+
+          //2. Send proof to server to verify old password
+          try {
+            const res = await fetch('/verify_login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ proof, publicSignals })
+            });
+            const result = await res.json();
+            if (!result.success) {
+              alert('Current password is incorrect!');
+              return;
+            }else{
+              alert('Old password verification successful! Index = ' + String(index));
+              // Send request to update secret on server
+              try {
+                const updateRes = await fetch('/update_employee_secret', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    email: email,
+                    role: role,
+                    new_secret: newSecret
+                  })
+                });
+                const updateResult = await updateRes.json();
+                if (updateResult.success) {
+                  alert('New password updated in employees successfully!');
+                } else {
+                  alert('Employee update failed: ' + updateResult.message);
+                }
+              } catch (err) {
+                alert('Error updating employees: ' + err);
               }
-            } catch (err) {
-              alert('Lỗi khi cập nhật employees: ' + err);
+              // Save index to send to server
+              localStorage.setItem('zk_index', index);
             }
-            // Lưu index để gửi lên server
-            localStorage.setItem('zk_index', index);
+          } catch (err) {
+            alert('Old password verification error: ' + err);
+            return;
           }
-        } catch (err) {
-          alert('Lỗi xác thực mật khẩu cũ: ' + err);
-          return false;
-        }
 
-       // 3. Tính hash Poseidon của email + mật khẩu mới (giả sử bạn có hàm poseidonHashLeafJS)
-        let newLeaf;
-        try {
-          newLeaf = await hashLeaf(email, newSecret); // Hàm này bạn cần định nghĩa ở client
-        } catch (err) {
-          alert('Lỗi khi hash mật khẩu mới: ' + err);
-          return false;
-        }
-
-        // 4. Gửi hash mới, index, role lên server để đổi leaf
-        try {
-          const res = await fetch('/change_password', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              new_leaf: newLeaf,
-              index: index,
-              role: role
-            })
-          });
-          const result = await res.json();
-          if (result.success) {
-            alert('Đổi mật khẩu thành công!');
-            window.location.href = "/";
-          } else {
-            alert(result.message || 'Đổi mật khẩu thất bại!');
+          // 3. Calculate Poseidon hash of email + new password (assuming you have poseidonHashLeafJS function)
+          let newLeaf;
+          try {
+            newLeaf = await hashLeaf(email, newSecret); // This function needs to be defined on client
+          } catch (err) {
+            alert('Error hashing new password: ' + err);
+            return;
           }
-        } catch (err) {
-          alert('Lỗi server: ' + err);
+
+          // 4. Send new hash, index, role to server to change leaf
+          try {
+            const res = await fetch('/change_password', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                new_leaf: newLeaf,
+                index: index,
+                role: role
+              })
+            });
+            const result = await res.json();
+            if (result.success) {
+              alert('Password changed successfully!');
+              window.location.href = "/";
+            } else {
+              alert(result.message || 'Password change failed!');
+            }
+          } catch (err) {
+            alert('Server error: ' + err);
+          }
+        } catch (error) {
+          alert('Unknown error: ' + error);
+        } finally {
+          // Restore original button state
+          submitBtn.innerHTML = originalHTML;
+          submitBtn.disabled = false;
         }
       });
     }
