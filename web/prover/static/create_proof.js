@@ -56,17 +56,36 @@ function buildMerklePath(leaves, index) {
   return path;
 }
 
-// Lấy Merkle data từ file JSON public
+// Cách tính path_index đơn giản nhất (dùng phép chia)
+function calculatePathIndexSimple(leafIndex, pathLength) {
+  const pathIndex = [];
+  let currentIndex = leafIndex;
+  
+  for (let level = 0; level < pathLength; level++) {
+    // Kiểm tra số chẵn/lẻ để biết hướng đi
+    const direction = currentIndex % 2;  // 0 = trái, 1 = phải
+    pathIndex.push(direction);
+    
+    console.log(`   Level ${level}: ${currentIndex} % 2 = ${direction} → ${direction === 0 ? 'TRÁI ⬅️' : 'PHẢI ➡️'}`);
+    
+    // Chia đôi để lên level tiếp theo
+    currentIndex = Math.floor(currentIndex / 2);
+  }
+  
+  return pathIndex;
+}
+
+// Lấy Merkle data 
 async function getMerkleData(email, secret, role) {
   const res = await fetch(`/roots/${role}.json`);
-  if (!res.ok) throw new Error("Không tìm thấy file Merkle root!");
+  if (!res.ok) throw new Error("Đăng nhập thất bại, không tìm thấy dữ liệu Merkle!");
   const data = await res.json();
   const leaves = data.leaves;
   const root = data.root;
   const leaf = await hashLeaf(email, secret);
   const index = leaves.indexOf(leaf);
-  //console.log("leaves " + leaf)
-  if (index === -1) throw new Error("Tài khoản không tồn tại!");
+  console.log("leaves " + leaf)
+  if (index === -1) throw new Error("Tài khoản hoặc mật khẩu không tồn tại!");
   const path = buildMerklePath(leaves, index);
   return { root, path, index, leaf };
 }
@@ -80,10 +99,10 @@ window.generateProof = async function generateProof(email, secret, role) {
   const input = {
     leaf: merkleData.leaf,
     path_elements: merkleData.path,
-    path_index: merkleData.path.map((_, i) => (merkleData.index >> i) & 1),
+    path_index: calculatePathIndexSimple(merkleData.index, merkleData.path.length),
     root: merkleData.root
   };
-  
+  // console.log("input", input);
   const wasmUrl = "/outputs/merkle_proof_js/merkle_proof.wasm";
   const zkeyUrl = "/outputs/merkle_proof_final.zkey";
    // Cache wasm và zkey sử dụng lại cache của file tránh tràn bộ nhớ

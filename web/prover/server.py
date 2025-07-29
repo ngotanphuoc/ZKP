@@ -59,17 +59,22 @@ def verify_proof_from_client(proof, public_signals):
     # Đường dẫn tới zkey và verification key
     vkey_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../outputs/verification_key.json"))
 
-    # Lưu proof và public signals tạm thời
-    with open("proof.json", "w", encoding="utf-8") as f:
+    # Đường dẫn tới thư mục outputs để lưu file tạm thời
+    outputs_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../outputs"))
+    proof_path = os.path.join(outputs_dir, "proof.json")
+    public_path = os.path.join(outputs_dir, "public.json")
+
+    # Lưu proof và public signals tạm thời vào thư mục outputs
+    with open(proof_path, "w", encoding="utf-8") as f:
         json.dump(proof, f)
-    with open("public.json", "w", encoding="utf-8") as f:
+    with open(public_path, "w", encoding="utf-8") as f:
         json.dump(public_signals, f)
 
     # Gọi snarkjs để verify
     try:
         result = subprocess.run([
             "snarkjs.cmd", "groth16", "verify",
-            vkey_path, "public.json", "proof.json"
+            vkey_path, public_path, proof_path
         ], capture_output=True, text=True, check=True)
         # Kiểm tra isValid trong public_signals
         is_valid = str(public_signals[-1])  # isValid thường là phần tử cuối
