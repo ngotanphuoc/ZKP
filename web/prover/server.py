@@ -204,6 +204,103 @@ def change_password():
 
 #====================================================================================================
 
+#========================================= Chức năng xóa leaves =========================================
+
+# Lấy danh sách leaves theo role
+@app.route('/get_leaves', methods=['POST'])
+def get_leaves():
+    try:
+        data = request.get_json()
+        role = data['role']
+        
+        roots_path = os.path.abspath(os.path.join(os.path.dirname(__file__), f"../../roots/{role}.json"))
+        if not os.path.exists(roots_path):
+            return jsonify({"success": False, "message": f"Role {role} không tồn tại!"})
+
+        with open(roots_path, 'r', encoding='utf-8') as f:
+            roots = json.load(f)
+
+        leaves = roots.get('leaves', [])
+        return jsonify({"success": True, "leaves": leaves})
+    except Exception as e:
+        return jsonify({"success": False, "message": f"Lỗi server: {e}"})
+
+# Xóa leaves theo indices
+@app.route('/delete_leaves', methods=['POST'])
+def delete_leaves():
+    try:
+        data = request.get_json()
+        role = data['role']
+        indices = data['indices']  # Danh sách các index cần xóa
+        
+        roots_path = os.path.abspath(os.path.join(os.path.dirname(__file__), f"../../roots/{role}.json"))
+        if not os.path.exists(roots_path):
+            return jsonify({"success": False, "message": f"Role {role} không tồn tại!"})
+
+        with open(roots_path, 'r', encoding='utf-8') as f:
+            roots = json.load(f)
+
+        leaves = roots.get('leaves', [])
+        emails = roots.get('emails', [])
+        
+        # Kiểm tra indices hợp lệ
+        for idx in indices:
+            if not (0 <= idx < len(leaves)):
+                return jsonify({"success": False, "message": f"Index {idx} không hợp lệ!"})
+            if leaves[idx] == '0':
+                return jsonify({"success": False, "message": f"Index {idx} đã trống!"})
+
+        # Đọc file employees để xóa email và secret tương ứng
+        employees_path = os.path.abspath(os.path.join(os.path.dirname(__file__), f"../../employees/employees_{role}.json"))
+        employees = []
+        if os.path.exists(employees_path):
+            with open(employees_path, 'r', encoding='utf-8') as f:
+                employees = json.load(f)
+
+        # Sắp xếp indices theo thứ tự giảm dần để xóa từ cuối lên
+        sorted_indices = sorted(indices, reverse=True)
+        
+        # Xóa leaves, emails và employees theo indices
+        for idx in sorted_indices:
+            # Xóa leaf
+            leaves[idx] = '0'
+            # Xóa email tương ứng trực tiếp khỏi mảng
+            if idx < len(emails):
+                emails.pop(idx)
+            # Xóa employee tương ứng từ file employees
+            if idx < len(employees):
+                employees.pop(idx)
+
+        # Dịch chuyển các leaves không phải 0 lên đầu
+        non_zero_leaves = [leaf for leaf in leaves if leaf != '0']
+        zero_count = len(leaves) - len(non_zero_leaves)
+        leaves = non_zero_leaves + ['0'] * zero_count
+
+        # Emails chỉ chứa các email thực tế, không chứa '0'
+        # Không cần thêm '0' vào emails
+
+        # Cập nhật lại root
+        roots['leaves'] = leaves
+        roots['emails'] = emails
+        roots['root'] = build_merkle_root(leaves)
+
+        # Lưu file roots
+        with open(roots_path, 'w', encoding='utf-8') as f:
+            json.dump(roots, f, ensure_ascii=False, indent=2)
+
+        # Lưu lại file employees đã được cập nhật
+        if os.path.exists(employees_path):
+            with open(employees_path, 'w', encoding='utf-8') as f:
+                json.dump(employees, f, ensure_ascii=False, indent=2)
+
+        return jsonify({"success": True, "message": f"Đã xóa {len(indices)} leaves và employees tương ứng thành công!"})
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({"success": False, "message": f"Lỗi server: {e}"})
+
+#====================================================================================================
+
 #========================================= Các chức năng chuyển hướng và lấy file json =========================================
 
 # Chuyển hướng dashboard theo role
@@ -217,6 +314,12 @@ def serve_home(filename):
 @app.route('/register')
 def serve_register():
     html_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../Register/register.html"))
+    return send_file(html_path)
+
+# Server the delete page
+@app.route('/delete')
+def serve_delete():
+    html_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../Delete/Delete.html"))
     return send_file(html_path)
 
 #để cập nhật lại mật khẩu lúc chưa hash

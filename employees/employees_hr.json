@@ -1,5 +1,6 @@
 [
-    { "email": "helen@hr.company.com", "secret": "echo" },
-    { "email": "ian@hr.company.com", "secret": "foxtrot" },
-    { "email": "jane@hr.company.com", "secret": "golf" }
+  {
+    "email": "ian@hr.company.com",
+    "secret": "foxtrot"
+  }
 ]
