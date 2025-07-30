@@ -50,7 +50,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
           //2. Send proof to server to verify old password
           try {
-            const res = await fetch('/verify_login', {
+            const res = await fetch('/verify_old_password', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ proof, publicSignals })

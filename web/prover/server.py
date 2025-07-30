@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template_string, redirect, send_from_directory
+from flask import Flask, request, render_template_string, redirect, send_from_directory, session
 from flask import jsonify
 from flask import Flask, jsonify, abort
 from flask import send_file
@@ -16,7 +16,7 @@ def extract_role_from_email(email):
         return None
 
 def find_role_by_root(target_root):
-    """Find role corresponding to root by checking all files in roots/"""
+    #Find role corresponding to root by checking all files in roots
     roles = ["finance", "hr", "it", "sales"]  # List of available roles
     
     for role in roles:
@@ -41,6 +41,7 @@ def find_role_by_root(target_root):
 sys.stdout.reconfigure(encoding='utf-8')
 
 app = Flask(__name__)
+app.secret_key = 'zk_rbac_2025_super_secure_key_f8a9b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2'
 
 
 def poseidon_hash(inputs):
@@ -124,12 +125,53 @@ def verify_login_route():
             # Find role corresponding to verified_root
             role = find_role_by_root(verified_root)
             if role:
+                # Lưu role vào session
+                session['user_role'] = role
+                
                 # Return URL for client to redirect (still safe because server has verified)
                 return jsonify({
                     "success": True, 
                     "message": "Login successful!", 
                     "role": role,
                     "redirect_url": f"/home/{role}-dashboard.html"
+                })
+            else:
+                return jsonify({
+                    "success": False, 
+                    "message": "Root has been tampered with or does not exist in the system!",
+                    "verified_root": verified_root
+                })
+        else:
+            return jsonify({
+                "success": False, 
+                "message": "Public signals incomplete!", 
+                "log": msg
+            })
+    else:
+        return jsonify({"success": False, "message": "Proof is invalid!", "log": msg})
+
+# Separate endpoint for verifying old password during password change
+@app.route('/verify_old_password', methods=['POST'])
+def verify_old_password_route():
+    print("Verifying old password...")
+    data = request.get_json()
+    proof = data['proof']
+    public_signals = data['publicSignals']
+
+    ok, msg = verify_proof_from_client(proof, public_signals)
+    if ok:
+        if len(public_signals) >= 2:
+            # verified_root from public signals
+            verified_root = str(public_signals[1])
+            
+            # Find role corresponding to verified_root
+            role = find_role_by_root(verified_root)
+            if role:
+                # Don't set session for password verification, just return success
+                return jsonify({
+                    "success": True, 
+                    "message": "Old password verification successful!", 
+                    "role": role
                 })
             else:
                 return jsonify({
@@ -244,7 +286,7 @@ def change_password():
 
         with open(roots_path, 'w', encoding='utf-8') as f:
             json.dump(roots, f, ensure_ascii=False, indent=2)
-
+        session.clear()
         return jsonify({"success": True, "message": "Password changed successfully!"})
     except Exception as e:
         import traceback
@@ -352,12 +394,26 @@ def delete_leaves():
 
 #========================================= Redirect and JSON file functions =========================================
 
-# Redirect dashboard by role
+# Redirect dashboard by role - kiểm tra session và role
 @app.route("/home/<path:filename>")
 def serve_home(filename):
+    # Chỉ kiểm tra đã đăng nhập chưa
+    if 'user_role' not in session:
+        return redirect('/')
+    
+    # Lấy role từ filename (vd: "finance-dashboard.html" -> "finance")
+    requested_role = filename.split('-')[0] if '-' in filename else None
+    user_role = session.get('user_role')
+    
+    # Kiểm tra role có khớp không - chỉ redirect nếu khác role
+    if requested_role and requested_role != user_role:
+        # Redirect về dashboard đúng của user
+        return redirect(f"/home/{user_role}-dashboard.html")
+    
     # Get path to home directory at same level as prover
     home_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../home"))
     return send_from_directory(home_dir, filename)
+
 
 # Server the register page
 @app.route('/register')

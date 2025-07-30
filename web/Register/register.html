@@ -148,27 +148,27 @@
       const submitButton = document.getElementById('submitButton');
       const buttonContent = submitButton.innerHTML;
 
-      // 1. Kiểm tra xác nhận mật khẩu
+      // 1. Check password confirmation
       if (secret !== confirmSecret) {
         responseMessage.className = 'response-message show bg-red-50 text-red-700 border border-red-200 rounded-lg p-4 flex items-center justify-center gap-2';
-        responseMessage.innerHTML = `<i class="fas fa-exclamation-circle text-xl"></i> <span><strong>Lỗi:</strong> Secret key xác nhận không khớp!</span>`;
+        responseMessage.innerHTML = `<i class="fas fa-exclamation-circle text-xl"></i> <span><strong>Error:</strong> Secret key confirmation does not match!</span>`;
         return;
       }
 
-      // 2. Kiểm tra email đúng định dạng
+      // 2. Check email format
       const role = extractRoleFromEmail(email);
       if (!VALID_ROLES.includes(role)) {
         responseMessage.className = 'response-message show bg-yellow-50 text-yellow-800 border border-yellow-200 rounded-lg p-4 flex items-center justify-center gap-2';
-        responseMessage.innerHTML = `<i class="fas fa-info-circle text-xl"></i> <span><strong>Lưu ý:</strong> Email phải có dạng <b>name@role.company.com</b> với role là <b>it, hr, sales, finance</b>!</span>`;
+        responseMessage.innerHTML = `<i class="fas fa-info-circle text-xl"></i> <span><strong>Note:</strong> Email must be in format <b>name@role.company.com</b> with role being <b>it, hr, sales, finance</b>!</span>`;
         return;
       }
 
-      // 3. Hash email bằng Poseidon(email, 0)
+      // 3. Hash email using Poseidon(email, 0)
       submitButton.disabled = true;
-      submitButton.innerHTML = '<i class="fas fa-circle-notch spinner mr-2"></i><span>Đang kiểm tra email...</span>';
+      submitButton.innerHTML = '<i class="fas fa-circle-notch spinner mr-2"></i><span>Checking email...</span>';
       const emailHash = await hashLeaf(email, "0");
 
-      // 4. Gửi hash email lên server để kiểm tra trùng
+      // 4. Send email hash to server to check duplicates
       const checkRes = await fetch('/check_email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -177,12 +177,12 @@
       const checkData = await checkRes.json();
       if (!checkData.success) {
         responseMessage.className = 'response-message show bg-red-50 text-red-700 border border-red-200 rounded-lg p-4 flex items-center justify-center gap-2';
-        responseMessage.innerHTML = `<i class="fas fa-ban text-xl"></i> <span><strong>Lỗi:</strong> Email này đã tồn tại trong hệ thống!</span>`;
+        responseMessage.innerHTML = `<i class="fas fa-ban text-xl"></i> <span><strong>Error:</strong> This email already exists in the system!</span>`;
         submitButton.disabled = false;
         submitButton.innerHTML = buttonContent;
         return;
       }
-      //Thêm email và secret vào thư mục employees (bước thử nghiệm)
+      // Add email and secret to employees folder (trial step)
       try { 
         const addRes = await fetch('/add_employee', {
           method: 'POST',
@@ -195,19 +195,19 @@
         });
         const addResult = await addRes.json();
         if (addResult.success) {
-          alert('Thêm email và secret vào employees thành công!');
+          alert('Successfully added email and secret to employees!');
         } else {
-          alert('Thêm vào employees thất bại: ' + addResult.message);
+          alert('Failed to add to employees: ' + addResult.message);
         }
       } catch (err) {
-        alert('Lỗi khi thêm vào employees: ' + err);
+        alert('Error adding to employees: ' + err);
       }
       
-      // 5. Hash leaf bằng Poseidon(email, secret)
+      // 5. Hash leaf using Poseidon(email, secret)
       submitButton.innerHTML = '<i class="fas fa-circle-notch spinner mr-2"></i><span>Registering...</span>';
       const leafHash = await hashLeaf(email, secret);
 
-      // 6. Gửi hash email và hash leaf lên server để lưu
+      // 6. Send email hash and leaf hash to server to save
       const regRes = await fetch('/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
